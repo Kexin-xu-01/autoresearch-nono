@@ -30,53 +30,48 @@ No modifications to the autoresearch workload are required.
 - Linux kernel ≥ 5.13 (Landlock support) — or macOS 10.5+ for the MLX profile
 - [nono](https://github.com/lukehinds/nono) installed
 - [karpathy/autoresearch](https://github.com/karpathy/autoresearch) cloned separately
+- `gnome-keyring` installed: `sudo apt install -y gnome-keyring`
 
 ---
 
 ## Quickstart
 
-> **Note — headless servers (JupyterHub, cloud VMs, SSH sessions):** `nono trust keygen`
-> requires a running keyring daemon. If you see an error about `Secret Service` or
-> `org.freedesktop.secrets`, follow the **Headless servers** path below instead of the
-> standard path.
+Replace `/path/to/autoresearch` with your actual clone path (e.g. `~/autoresearch`).
 
-### Desktop (GNOME, KDE, macOS)
+### Step 1 — install the nono profile
 
 ```bash
-# 1. Install the nono profile
 cp profiles/autoresearch.json ~/.config/nono/profiles/
+```
 
-# 2. One-time: generate signing key and sign program.md
-nono trust keygen
-nono trust sign --key default /path/to/autoresearch/program.md
+### Step 2 — one-time signing setup
 
-# 3. Launch
+> **Desktop (GNOME/KDE/macOS):** run these directly:
+> ```bash
+> nono trust keygen
+> cd /path/to/autoresearch
+> nono trust init --include "program.md" --key default
+> nono trust sign-policy
+> nono trust sign --key default program.md
+> ```
+
+> **Headless servers (JupyterHub, SSH, cloud VMs):** the keyring requires its own
+> D-Bus session. Run this single command (replace the path):
+
+```bash
+dbus-run-session -- bash -c 'echo "" | gnome-keyring-daemon --unlock --components=secrets &>/dev/null; sleep 1 && nono trust keygen --force && cd /path/to/autoresearch && nono trust init --include "program.md" --key default --force && nono trust sign-policy && nono trust sign --key default program.md'
+```
+
+This produces `trust-policy.json`, `trust-policy.json.bundle`, and `program.md.bundle` in your autoresearch directory.
+
+### Step 3 — launch
+
+```bash
+cd /path/to/autoresearch-nono
 ./launch.sh /path/to/autoresearch
 ```
 
-### Headless servers (JupyterHub, SSH, cloud VMs)
-
-No desktop keyring daemon is running, so you need to start one manually. Install
-`gnome-keyring` first if not already present (`sudo apt install -y gnome-keyring`), then:
-
-```bash
-# 1. Install the nono profile
-cp profiles/autoresearch.json ~/.config/nono/profiles/
-
-# 2. One-time: generate key + sign, wrapped in a temporary dbus session
-dbus-run-session -- bash -c '
-  echo "" | gnome-keyring-daemon --unlock --components=secrets &>/dev/null
-  sleep 1
-  nono trust keygen
-  nono trust sign --key default /path/to/autoresearch/program.md
-'
-
-# 3. Launch (launch.sh detects headless environment and handles dbus automatically)
-./launch.sh /path/to/autoresearch
-```
-
-`launch.sh` auto-detects a missing D-Bus session on subsequent runs and re-launches itself
-under `dbus-run-session`, so step 3 is always just `./launch.sh`.
+`launch.sh` automatically handles the keyring session on headless servers — no manual `dbus-run-session` needed for day-to-day use.
 
 ---
 
@@ -109,25 +104,23 @@ enforcement, the child process inherits the same policy automatically.
 
 ## Attestation
 
-`launch.sh` verifies `program.md` against a Sigstore bundle before each run. If `program.md`
-is tampered with between runs (changing the agent's research mandate), the run aborts.
+`launch.sh` verifies `program.md` against its bundle before each run. If `program.md` is
+tampered with between runs, the run aborts.
 
 ```bash
-# Sign before first run (headless example)
-dbus-run-session -- bash -c '
-  echo "" | gnome-keyring-daemon --unlock --components=secrets &>/dev/null
-  sleep 1
-  nono trust sign --key default /path/to/autoresearch/program.md
-'
-# → produces program.md.bundle alongside program.md
-
-# Tamper test: modify program.md without re-signing
+# Tamper test
 echo "# tampered" >> /path/to/autoresearch/program.md
 ./launch.sh /path/to/autoresearch
 # → [nono] ABORT: program.md attestation failed.
 ```
 
-Bundles are generated locally and not committed to this repo (see `trust/.gitkeep`).
+To re-sign after intentionally updating `program.md`:
+
+```bash
+dbus-run-session -- bash -c 'echo "" | gnome-keyring-daemon --unlock --components=secrets &>/dev/null; sleep 1 && cd /path/to/autoresearch && nono trust sign --key default program.md'
+```
+
+Bundles are generated locally and not committed to this repo (see `.gitignore`).
 
 ---
 
@@ -144,7 +137,6 @@ nono audit show <session-id> --json
 
 # Filter by operation type
 nono audit show <session-id> --json | jq '.denials'
-nono audit show <session-id> --json | jq 'select(.operation == "network")'
 ```
 
 `audit-examples/` contains representative excerpts from clean runs and violation attempts.
@@ -175,11 +167,6 @@ cp profiles/autoresearch-mlx.json ~/.config/nono/profiles/
 ./launch.sh /path/to/autoresearch-mlx
 ```
 
-The MLX profile differs from the Linux profile in its security groups (`system_read_macos`
-instead of `system_read_linux`) and the absence of CUDA library paths. The two profiles
-side by side illustrate why `nono learn` exists: hand-writing policy across platforms doesn't
-scale.
-
 ---
 
 ## Files
@@ -189,8 +176,8 @@ profiles/
   autoresearch.json      nono profile for Linux/CUDA
   autoresearch-mlx.json  nono profile for macOS/MLX (Apple Silicon)
 trust/
-  .gitkeep               program.md.bundle is generated locally, not committed
+  .gitkeep               trust-policy.json.bundle generated locally, not committed
 audit-examples/
-  .gitkeep               add session excerpts here after Phase 2 runs
+  .gitkeep               add session excerpts here after runs
 launch.sh                attestation check + nono run wrapper (headless-aware)
 ```
