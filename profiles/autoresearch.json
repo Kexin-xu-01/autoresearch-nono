@@ -10,7 +10,7 @@
   },
   "filesystem": {
     "allow": ["$HOME/.cache/autoresearch"],
-    "read": ["$HOME/.cache/uv", "$HOME/.local/share/uv"]
+    "read": ["$HOME/.cache/uv", "$HOME/.local/share/uv", "$HOME/.nvm"]
   },
   "network": {
     "block": false,
