@@ -30,48 +30,59 @@ No modifications to the autoresearch workload are required.
 - Linux kernel ≥ 5.13 (Landlock support) — or macOS 10.5+ for the MLX profile
 - [nono](https://github.com/lukehinds/nono) installed
 - [karpathy/autoresearch](https://github.com/karpathy/autoresearch) cloned separately
-- `gnome-keyring` installed: `sudo apt install -y gnome-keyring`
 
 ---
 
 ## Quickstart
 
-Replace `/path/to/autoresearch` with your actual clone path (e.g. `~/autoresearch`).
-
-### Step 1 — install the nono profile
-
 ```bash
+# 1. Install the nono profile
 cp profiles/autoresearch.json ~/.config/nono/profiles/
-```
 
-### Step 2 — one-time signing setup
-
-> **Desktop (GNOME/KDE/macOS):** run these directly:
-> ```bash
-> nono trust keygen
-> cd /path/to/autoresearch
-> nono trust init --include "program.md" --key default
-> nono trust sign-policy
-> nono trust sign --key default program.md
-> ```
-
-> **Headless servers (JupyterHub, SSH, cloud VMs):** the keyring requires its own
-> D-Bus session. Run this single command (replace the path):
-
-```bash
-dbus-run-session -- bash -c 'echo "" | gnome-keyring-daemon --unlock --components=secrets &>/dev/null; sleep 1 && nono trust keygen --force && cd /path/to/autoresearch && nono trust init --include "program.md" --key default --force && nono trust sign-policy && nono trust sign --key default program.md'
-```
-
-This produces `trust-policy.json`, `trust-policy.json.bundle`, and `program.md.bundle` in your autoresearch directory.
-
-### Step 3 — launch
-
-```bash
-cd /path/to/autoresearch-nono
+# 2. Launch (kernel enforcement is always active)
 ./launch.sh /path/to/autoresearch
 ```
 
-`launch.sh` automatically handles the keyring session on headless servers — no manual `dbus-run-session` needed for day-to-day use.
+That's it. The sandbox enforces filesystem and network restrictions regardless of whether
+attestation is configured.
+
+---
+
+## Attestation (optional)
+
+Attestation lets `launch.sh` verify that `program.md` hasn't been tampered with between runs.
+It requires a persistent keyring and works best on **desktop systems** (GNOME, KDE, macOS).
+
+> **Headless servers (JupyterHub, SSH, cloud VMs):** `nono trust keygen` uses the system
+> keyring, which requires a GUI session on most Linux servers. The keyring is not persistent
+> across `dbus-run-session` invocations, so attestation cannot be set up reliably in these
+> environments. `launch.sh` detects this and skips attestation gracefully — the kernel sandbox
+> enforcement is still fully active.
+
+### Desktop setup
+
+```bash
+cd /path/to/autoresearch
+nono trust keygen
+nono trust init --include "program.md" --key default
+nono trust sign-policy
+nono trust sign --key default program.md
+```
+
+After this, `./launch.sh` will verify `program.md` on every run. To re-sign after intentionally
+editing `program.md`:
+
+```bash
+nono trust sign --key default /path/to/autoresearch/program.md
+```
+
+### Tamper detection
+
+```bash
+echo "# tampered" >> /path/to/autoresearch/program.md
+./launch.sh /path/to/autoresearch
+# → [nono] ABORT: program.md attestation failed (tampering detected).
+```
 
 ---
 
@@ -99,28 +110,6 @@ credential stores by default, without needing to enumerate them.
 The most important property to verify: restrictions cascade to the training subprocess spawned
 by `uv run train.py`. This is where application-level sandboxes fail. With nono's Landlock
 enforcement, the child process inherits the same policy automatically.
-
----
-
-## Attestation
-
-`launch.sh` verifies `program.md` against its bundle before each run. If `program.md` is
-tampered with between runs, the run aborts.
-
-```bash
-# Tamper test
-echo "# tampered" >> /path/to/autoresearch/program.md
-./launch.sh /path/to/autoresearch
-# → [nono] ABORT: program.md attestation failed.
-```
-
-To re-sign after intentionally updating `program.md`:
-
-```bash
-dbus-run-session -- bash -c 'echo "" | gnome-keyring-daemon --unlock --components=secrets &>/dev/null; sleep 1 && cd /path/to/autoresearch && nono trust sign --key default program.md'
-```
-
-Bundles are generated locally and not committed to this repo (see `.gitignore`).
 
 ---
 
@@ -176,8 +165,8 @@ profiles/
   autoresearch.json      nono profile for Linux/CUDA
   autoresearch-mlx.json  nono profile for macOS/MLX (Apple Silicon)
 trust/
-  .gitkeep               trust-policy.json.bundle generated locally, not committed
+  .gitkeep               attestation bundles are generated locally, not committed
 audit-examples/
   .gitkeep               add session excerpts here after runs
-launch.sh                attestation check + nono run wrapper (headless-aware)
+launch.sh                sandbox launcher with graceful attestation fallback
 ```

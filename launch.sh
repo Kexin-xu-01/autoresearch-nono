@@ -8,43 +8,51 @@
 # Prerequisites:
 #   - nono installed (https://github.com/lukehinds/nono)
 #   - profile installed: cp profiles/autoresearch.json ~/.config/nono/profiles/
-#   - trust policy + program.md signed (one-time, see README headless instructions)
 #
 set -euo pipefail
 
 AUTORESEARCH_DIR="$(realpath "${1:?Usage: $0 <path-to-autoresearch-clone>}")"
-
-# On servers (including those with a D-Bus socket but no keyring daemon),
-# gnome-keyring must be started inside its own dbus-run-session to own the
-# secrets service. We detect this by checking whether _NONO_KEYRING_READY is set,
-# which we export after relaunching.
-if [[ -z "${_NONO_KEYRING_READY:-}" ]] && command -v dbus-run-session &>/dev/null \
-        && command -v gnome-keyring-daemon &>/dev/null; then
-    echo "[nono] Starting keyring session..."
-    export _NONO_KEYRING_READY=1
-    exec dbus-run-session -- bash -c '
-        echo "" | gnome-keyring-daemon --unlock --components=secrets &>/dev/null || true
-        sleep 1
-        exec bash '"$0"' '"$AUTORESEARCH_DIR"'
-    '
-fi
-
 BUNDLE="${AUTORESEARCH_DIR}/program.md.bundle"
 
-# Verify program.md has not been tampered with since signing
-if [[ -f "${BUNDLE}" ]]; then
-    echo "[nono] Verifying program.md attestation..."
-    nono trust verify "${AUTORESEARCH_DIR}/program.md" || {
-        echo "[nono] ABORT: program.md attestation failed."
-        echo "[nono] Re-sign with:"
-        echo "[nono]   dbus-run-session -- bash -c 'echo \"\" | gnome-keyring-daemon --unlock --components=secrets &>/dev/null; sleep 1 && nono trust sign --key default ${AUTORESEARCH_DIR}/program.md'"
-        exit 1
-    }
-    echo "[nono] Attestation OK."
-else
-    echo "[nono] WARNING: No program.md.bundle found — running without attestation check."
-    echo "[nono] See README (Headless quickstart) to enable attestation."
-fi
+# Attestation check (optional — requires persistent keyring, see README).
+# Skipped automatically if no bundle exists or if running on a headless server
+# where the keyring cannot persist between sessions (JupyterHub, cloud VMs).
+_try_verify() {
+    if [[ ! -f "${BUNDLE}" ]]; then
+        echo "[nono] No program.md.bundle found — skipping attestation."
+        echo "[nono] See README to enable attestation on a desktop system."
+        return 0
+    fi
+
+    local verify_cmd="nono trust verify ${AUTORESEARCH_DIR}/program.md"
+
+    # Try verification. If keyring is unavailable, warn and continue rather than abort.
+    if command -v gnome-keyring-daemon &>/dev/null; then
+        result=$(dbus-run-session -- bash -c '
+            echo "" | gnome-keyring-daemon --unlock --components=secrets &>/dev/null || true
+            sleep 1
+            nono trust verify '"${AUTORESEARCH_DIR}/program.md"' 2>&1
+        ') && rc=0 || rc=$?
+    else
+        result=$($verify_cmd 2>&1) && rc=0 || rc=$?
+    fi
+
+    if [[ $rc -eq 0 ]]; then
+        echo "[nono] Attestation OK."
+    else
+        if echo "$result" | grep -q "ECDSA signature\|keystore\|Secret Service\|unlock prompt"; then
+            echo "[nono] WARNING: Attestation skipped — keyring not available in this environment."
+            echo "[nono] Kernel sandbox enforcement is still active."
+        else
+            echo "$result"
+            echo "[nono] ABORT: program.md attestation failed (tampering detected)."
+            exit 1
+        fi
+    fi
+}
+
+echo "[nono] Checking attestation..."
+_try_verify
 
 echo "[nono] Starting agent under kernel enforcement..."
 exec nono run \
