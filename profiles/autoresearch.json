@@ -1,0 +1,23 @@
+{
+  "meta": {
+    "name": "autoresearch",
+    "version": "1.0.0",
+    "description": "nono profile for karpathy/autoresearch autonomous ML research agent (Linux/CUDA)",
+    "author": "Kexin-xu-01"
+  },
+  "security": {
+    "groups": ["deny_credentials", "python_runtime", "system_read_linux", "system_write_linux"]
+  },
+  "filesystem": {
+    "allow": ["$HOME/.cache/autoresearch"],
+    "read": ["$HOME/.cache/uv", "$HOME/.local/share/uv"]
+  },
+  "network": {
+    "block": false,
+    "network_profile": "developer",
+    "allow_domain": ["huggingface.co", "cdn-lfs.huggingface.co"]
+  },
+  "workdir": {
+    "access": "readwrite"
+  }
+}
