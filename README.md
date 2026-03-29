@@ -35,20 +35,48 @@ No modifications to the autoresearch workload are required.
 
 ## Quickstart
 
+> **Note — headless servers (JupyterHub, cloud VMs, SSH sessions):** `nono trust keygen`
+> requires a running keyring daemon. If you see an error about `Secret Service` or
+> `org.freedesktop.secrets`, follow the **Headless servers** path below instead of the
+> standard path.
+
+### Desktop (GNOME, KDE, macOS)
+
 ```bash
 # 1. Install the nono profile
 cp profiles/autoresearch.json ~/.config/nono/profiles/
 
-# 2. Sign program.md (one-time key generation + sign)
+# 2. One-time: generate signing key and sign program.md
 nono trust keygen
-nono trust sign --keyed /path/to/autoresearch/program.md
+nono trust sign --key default /path/to/autoresearch/program.md
 
 # 3. Launch
 ./launch.sh /path/to/autoresearch
 ```
 
-That's it. The agent runs exactly as it would standalone — except that the kernel now enforces
-what it can and cannot touch.
+### Headless servers (JupyterHub, SSH, cloud VMs)
+
+No desktop keyring daemon is running, so you need to start one manually. Install
+`gnome-keyring` first if not already present (`sudo apt install -y gnome-keyring`), then:
+
+```bash
+# 1. Install the nono profile
+cp profiles/autoresearch.json ~/.config/nono/profiles/
+
+# 2. One-time: generate key + sign, wrapped in a temporary dbus session
+dbus-run-session -- bash -c '
+  echo "" | gnome-keyring-daemon --unlock --components=secrets &>/dev/null
+  sleep 1
+  nono trust keygen
+  nono trust sign --key default /path/to/autoresearch/program.md
+'
+
+# 3. Launch (launch.sh detects headless environment and handles dbus automatically)
+./launch.sh /path/to/autoresearch
+```
+
+`launch.sh` auto-detects a missing D-Bus session on subsequent runs and re-launches itself
+under `dbus-run-session`, so step 3 is always just `./launch.sh`.
 
 ---
 
@@ -85,8 +113,12 @@ enforcement, the child process inherits the same policy automatically.
 is tampered with between runs (changing the agent's research mandate), the run aborts.
 
 ```bash
-# Sign before first run
-nono trust sign --keyed /path/to/autoresearch/program.md
+# Sign before first run (headless example)
+dbus-run-session -- bash -c '
+  echo "" | gnome-keyring-daemon --unlock --components=secrets &>/dev/null
+  sleep 1
+  nono trust sign --key default /path/to/autoresearch/program.md
+'
 # → produces program.md.bundle alongside program.md
 
 # Tamper test: modify program.md without re-signing
@@ -160,5 +192,5 @@ trust/
   .gitkeep               program.md.bundle is generated locally, not committed
 audit-examples/
   .gitkeep               add session excerpts here after Phase 2 runs
-launch.sh                attestation check + nono run wrapper
+launch.sh                attestation check + nono run wrapper (headless-aware)
 ```
