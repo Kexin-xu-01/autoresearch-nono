@@ -113,13 +113,10 @@ def fetch_tcga_reports():
         print(f"  and place CSV/ZIP files in {dest_dir}")
         return _load_tcga_from_dir(dest_dir)
 
-    # Find files in the latest version
-    versions = meta.get("versions", [])
-    files = []
-    if versions:
-        files = versions[-1].get("files", [])
-    if not files:
-        files = meta.get("files", [])
+    # Mendeley Data API v2: top-level "data" list, or nested under "versions"
+    files = (meta.get("data")
+             or meta.get("files")
+             or next((v.get("files", []) for v in reversed(meta.get("versions", []))), []))
 
     if not files:
         print("  WARNING: no files found in Mendeley API response.")
@@ -149,9 +146,10 @@ def fetch_tcga_reports():
 
 
 def _load_tcga_from_dir(directory):
-    """Load all CSV/TSV/ZIP files in directory and extract pathology report text."""
+    """Load all CSV/TSV/ZIP/parquet files in directory and extract pathology report text."""
     docs = []
-    paths = list(directory.glob("*.csv")) + list(directory.glob("*.tsv")) + list(directory.glob("*.zip"))
+    paths = (list(directory.glob("*.csv")) + list(directory.glob("*.tsv"))
+             + list(directory.glob("*.zip")) + list(directory.glob("*.parquet")))
     if not paths:
         print(f"  No data files found in {directory}. Skipping TCGA-Reports.")
         return docs
@@ -162,10 +160,15 @@ def _load_tcga_from_dir(directory):
 
 
 def _read_tabular_file(path, source=""):
-    """Read a CSV/TSV/ZIP and extract free-text strings from the best text column."""
+    """Read a CSV/TSV/ZIP/parquet and extract free-text strings from the best text column."""
     docs = []
     try:
-        if path.suffix == ".zip":
+        if path.suffix == ".parquet":
+            import pyarrow.parquet as pq
+            df = pq.read_table(path).to_pandas()
+            docs.extend(_df_to_texts(df, source))
+            return docs
+        elif path.suffix == ".zip":
             with zipfile.ZipFile(path) as zf:
                 for name in zf.namelist():
                     if name.endswith((".csv", ".tsv")):
@@ -248,7 +251,7 @@ def fetch_multicare_ibd():
         size_mb = size_bytes / 1e6
 
         # Skip non-tabular files (images, PDFs etc)
-        if not any(fname.lower().endswith(ext) for ext in (".csv", ".tsv", ".zip", ".json")):
+        if not any(fname.lower().endswith(ext) for ext in (".csv", ".tsv", ".zip", ".json", ".parquet")):
             print(f"  Skipping non-text file: {fname} ({size_mb:.0f} MB)")
             continue
 
@@ -272,7 +275,8 @@ def _load_multicare_ibd_from_dir(directory):
     """Load MultiCaRe files, combine text columns per case, filter for IBD."""
     all_docs = []
     paths = (list(directory.glob("*.csv")) + list(directory.glob("*.tsv"))
-             + list(directory.glob("*.zip")) + list(directory.glob("*.json")))
+             + list(directory.glob("*.zip")) + list(directory.glob("*.json"))
+             + list(directory.glob("*.parquet")))
     if not paths:
         print(f"  No data files found in {directory}. Skipping MultiCaRe.")
         return []
@@ -290,7 +294,20 @@ def _parse_multicare_file(path):
     """Parse one MultiCaRe file → list of combined case-text strings."""
     docs = []
     try:
-        if path.suffix == ".zip":
+        if path.suffix == ".parquet":
+            import pyarrow.parquet as pq
+            df = pq.read_table(path).to_pandas()
+            text_cols = [c for c in df.columns
+                         if any(kw in c.lower() for kw in MULTICARE_TEXT_COLS)]
+            if not text_cols:
+                text_cols = df.select_dtypes(include="object").columns.tolist()
+            for _, row in df.iterrows():
+                parts = [str(row[c]).strip() for c in text_cols
+                         if pd.notna(row[c]) and str(row[c]).strip() not in ("nan", "")]
+                combined = "\n\n".join(parts)
+                if len(combined) > 100:
+                    docs.append(combined)
+        elif path.suffix == ".zip":
             with zipfile.ZipFile(path) as zf:
                 for name in zf.namelist():
                     if name.endswith((".csv", ".tsv", ".json")):
