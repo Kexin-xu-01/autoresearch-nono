@@ -3,7 +3,7 @@
   "extends": "claude-code",
   "allow_gpu": true,
   "filesystem": {
-    "allow": ["$HOME/.cache/autoresearch", "$HOME/.cache/torch", "$HOME/.cache/uv", "$HOME/.local/share/uv", "/tmp", "/dev/shm"],
+    "allow": ["$HOME/.cache/autoresearch", "$HOME/.cache/torch", "$HOME/.cache/uv", "$HOME/.local/share/uv", "$HOME/.nv", "/tmp", "/dev/shm"],
     "read": ["$HOME/shared-libs", "$HOME/.nvm", "/proc"]
   }
 }
