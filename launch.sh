@@ -7,7 +7,7 @@
 #
 # Prerequisites:
 #   - nono installed (https://github.com/lukehinds/nono)
-#   - profile installed: cp profiles/autoresearch.json ~/.config/nono/profiles/
+#   - profile installed: cp profiles/claude-code-autoresearch.json ~/.config/nono/profiles/
 #
 set -euo pipefail
 
@@ -56,6 +56,8 @@ _try_verify
 
 echo "[nono] Starting agent under kernel enforcement..."
 exec nono run \
-    --profile autoresearch \
+    --profile claude-code-autoresearch \
+    --allow-gpu \
+    --allow-cwd \
     --workdir "${AUTORESEARCH_DIR}" \
     -- claude
