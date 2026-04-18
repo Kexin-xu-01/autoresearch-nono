@@ -8,13 +8,10 @@ of climbmix).
 ## Data setup (one-time, done by the human before starting)
 
 ```bash
-# 1. Download and shard IBD text corpus
-uv run showcase/prepare_ibd.py
+# From autoresearch-nono/workload/
+uv run prepare_ibd.py   # downloads IBD corpus, trains tokenizer
 
-# 2. Train BPE tokenizer on the IBD shards
-uv run prepare.py
-
-# 3. Verify data exists
+# Verify data exists
 ls ~/.cache/autoresearch/data/
 ls ~/.cache/autoresearch/tokenizer/
 ```
@@ -27,8 +24,8 @@ If either directory is missing, stop and tell the human.
 
 To set up a new experiment, work with the user to:
 
-1. **Agree on a run tag**: propose a tag based on today's date (e.g. `apr11`). The branch `autoresearch/<tag>` must not already exist — this is a fresh run.
-2. **Create the branch**: `git checkout -b autoresearch/<tag>` from current master.
+1. **Agree on a run tag**: propose a tag based on today's date (e.g. `apr11`). The branch `autoresearch/<tag>` must not already exist in the `autoresearch-nono` repo — this is a fresh run.
+2. **Create the branch**: from the repo root (`autoresearch-nono/`), run `git checkout -b autoresearch/<tag>` from `main`. All experiment commits go into `Kexin-xu-01/autoresearch-nono`.
 3. **Read the in-scope files**: Read these files for full context:
    - `prepare_ibd.py` — fixed constants, data prep, tokenizer, dataloader, evaluation. Do not modify.
    - `train.py` — the file you modify. Model architecture, optimizer, training loop.
