@@ -42,7 +42,7 @@ cd autoresearch-nono
 cp profiles/claude-code-autoresearch.json ~/.config/nono/profiles/
 
 # 3. One-time: prepare IBD data (downloads TCGA + MultiCaRe, trains tokenizer)
-uv run workload/prepare_ibd.py
+cd workload && uv run prepare_ibd.py && cd ..
 
 # 4. Launch — no path argument needed
 ./launch.sh
