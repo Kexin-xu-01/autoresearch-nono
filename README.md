@@ -1,15 +1,14 @@
 # autoresearch-nono
 
-Kernel-level sandboxing for [Karpathy's autoresearch](https://github.com/karpathy/autoresearch)
-using [nono](https://github.com/lukehinds/nono).
+Kernel-level sandboxing for [autoresearch](https://github.com/karpathy/autoresearch)
+using [nono](https://github.com/lukehinds/nono). This repo bundles both the sandbox
+configuration and the IBD-specialised training workload in one place.
 
 autoresearch gives an AI agent autonomous write access to a training codebase and spawns GPU
 training subprocesses overnight. nono uses Linux Landlock (or macOS Seatbelt) to enforce
 filesystem and network restrictions at the kernel level — restrictions that cascade to all child
 processes and cannot be bypassed. Unauthorized operations become structurally impossible, not
 just filtered.
-
-No modifications to the autoresearch workload are required.
 
 ---
 
@@ -29,22 +28,31 @@ No modifications to the autoresearch workload are required.
 
 - Linux kernel ≥ 5.13 (Landlock support) — or macOS 10.5+ for the MLX profile
 - [nono](https://github.com/lukehinds/nono) installed
-- [karpathy/autoresearch](https://github.com/karpathy/autoresearch) cloned separately
 
 ---
 
 ## Quickstart
 
 ```bash
-# 1. Install the nono profile
-cp profiles/autoresearch.json ~/.config/nono/profiles/
+# 1. Clone this repo (includes the workload)
+git clone https://github.com/Kexin-xu-01/autoresearch-nono
+cd autoresearch-nono
 
-# 2. Launch (kernel enforcement is always active)
-./launch.sh /path/to/autoresearch
+# 2. Install the nono profile
+cp profiles/claude-code-autoresearch.json ~/.config/nono/profiles/
+
+# 3. One-time: prepare IBD data (downloads TCGA + MultiCaRe, trains tokenizer)
+uv run workload/prepare_ibd.py
+
+# 4. Launch — no path argument needed
+./launch.sh
 ```
 
 That's it. The sandbox enforces filesystem and network restrictions regardless of whether
-attestation is configured.
+attestation is configured. To use a different autoresearch clone, pass its path:
+```bash
+./launch.sh /path/to/other-autoresearch-clone
+```
 
 ---
 
@@ -161,9 +169,21 @@ cp profiles/autoresearch-mlx.json ~/.config/nono/profiles/
 ## Files
 
 ```
+workload/
+  train.py               GPT model + training loop (the file the agent modifies)
+  prepare.py             generic data prep (climbmix web text)
+  prepare_ibd.py         IBD-specific data prep (TCGA + MultiCaRe)
+  program.md             agent instructions (generic)
+  program_ibd.md         agent instructions (IBD)
+  trust-policy.json      attestation policy
+  pyproject.toml         Python dependencies
+  .claude/               Claude Code settings for the sandboxed session
 profiles/
-  autoresearch.json      nono profile for Linux/CUDA
-  autoresearch-mlx.json  nono profile for macOS/MLX (Apple Silicon)
+  claude-code-autoresearch.json  nono profile for Linux/CUDA + GPU
+  autoresearch-mlx.json          nono profile for macOS/MLX (Apple Silicon)
+showcase/
+  prepare_ibd.py         simplified reference version of data prep
+  program_ibd.md         reference program instructions
 trust/
   .gitkeep               attestation bundles are generated locally, not committed
 audit-examples/

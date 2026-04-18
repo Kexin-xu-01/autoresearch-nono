@@ -4,3 +4,9 @@ trust/*.bundle
 # audit session exports
 audit-examples/*.jsonl
 !audit-examples/.gitkeep
+
+# workload run artifacts
+workload/results.tsv
+workload/run.log
+workload/*.bundle
+workload/__pycache__/

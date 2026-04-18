@@ -11,8 +11,14 @@
 #
 set -euo pipefail
 
-AUTORESEARCH_DIR="$(realpath "${1:?Usage: $0 <path-to-autoresearch-clone>}")"
-BUNDLE="${AUTORESEARCH_DIR}/program.md.bundle"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+AUTORESEARCH_DIR="$(realpath "${1:-$SCRIPT_DIR/workload}")"
+# Check for IBD program bundle first, fall back to generic
+if [[ -f "${AUTORESEARCH_DIR}/program_ibd.md.bundle" ]]; then
+    BUNDLE="${AUTORESEARCH_DIR}/program_ibd.md.bundle"
+else
+    BUNDLE="${AUTORESEARCH_DIR}/program.md.bundle"
+fi
 
 # Attestation check (optional — requires persistent keyring, see README).
 # Skipped automatically if no bundle exists or if running on a headless server
@@ -24,14 +30,15 @@ _try_verify() {
         return 0
     fi
 
-    local verify_cmd="nono trust verify ${AUTORESEARCH_DIR}/program.md"
+    local program_file="${BUNDLE%.bundle}"
+    local verify_cmd="nono trust verify ${program_file}"
 
     # Try verification. If keyring is unavailable, warn and continue rather than abort.
     if command -v gnome-keyring-daemon &>/dev/null; then
         result=$(dbus-run-session -- bash -c '
             echo "" | gnome-keyring-daemon --unlock --components=secrets &>/dev/null || true
             sleep 1
-            nono trust verify '"${AUTORESEARCH_DIR}/program.md"' 2>&1
+            nono trust verify '"${program_file}"' 2>&1
         ') && rc=0 || rc=$?
     else
         result=$($verify_cmd 2>&1) && rc=0 || rc=$?
