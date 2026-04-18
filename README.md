@@ -20,7 +20,7 @@ just filtered.
 | Agent can write to any file | Write access limited to repo + cache dirs |
 | Training subprocess has full network access | Network restricted to LLM API + HuggingFace |
 | No record of what the agent actually accessed | Structured audit log of every operation |
-| `program.md` instructions can be silently modified | Tamper detection via Sigstore attestation |
+| `program_ibd.md` instructions can be silently modified | Tamper detection via Sigstore attestation |
 
 ---
 
@@ -58,7 +58,7 @@ attestation is configured. To use a different autoresearch clone, pass its path:
 
 ## Attestation (optional)
 
-Attestation lets `launch.sh` verify that `program.md` hasn't been tampered with between runs.
+Attestation lets `launch.sh` verify that `program_ibd.md` hasn't been tampered with between runs.
 It requires a persistent keyring and works best on **desktop systems** (GNOME, KDE, macOS).
 
 > **Headless servers (JupyterHub, SSH, cloud VMs):** `nono trust keygen` uses the system
@@ -70,26 +70,26 @@ It requires a persistent keyring and works best on **desktop systems** (GNOME, K
 ### Desktop setup
 
 ```bash
-cd /path/to/autoresearch
+cd autoresearch-nono/workload
 nono trust keygen
-nono trust init --include "program.md" --key default
+nono trust init --include "program_ibd.md" --key default
 nono trust sign-policy
-nono trust sign --key default program.md
+nono trust sign --key default program_ibd.md
 ```
 
-After this, `./launch.sh` will verify `program.md` on every run. To re-sign after intentionally
-editing `program.md`:
+After this, `./launch.sh` will verify `program_ibd.md` on every run. To re-sign after intentionally
+editing `program_ibd.md`:
 
 ```bash
-nono trust sign --key default /path/to/autoresearch/program.md
+nono trust sign --key default workload/program_ibd.md
 ```
 
 ### Tamper detection
 
 ```bash
-echo "# tampered" >> /path/to/autoresearch/program.md
-./launch.sh /path/to/autoresearch
-# → [nono] ABORT: program.md attestation failed (tampering detected).
+echo "# tampered" >> workload/program_ibd.md
+./launch.sh
+# → [nono] ABORT: program_ibd.md attestation failed (tampering detected).
 ```
 
 ---
@@ -104,7 +104,7 @@ nono learn -- claude
 ```
 
 Running 2-3 full experiment cycles (~20-30 min) captures the stable filesystem and network
-footprint. The agent reads `program.md`, `train.py`, `prepare.py`, and `run.log` each cycle;
+footprint. The agent reads `program_ibd.md`, `train.py`, `prepare_ibd.py`, and `run.log` each cycle;
 writes `train.py`, `run.log`, and `results.tsv`; and spawns `uv run train.py` as a subprocess.
 
 Network-wise: Anthropic API for agent calls, HuggingFace CDN for the one-time dataset download,
