@@ -71,17 +71,23 @@ from running with tampered instructions.
 
 ```bash
 cd autoresearch-nono/workload
+
+# One-time: generate signing key
 nono trust keygen
-nono trust init --include "program.md" --key default
-nono trust sign-policy
-nono trust sign --key default program.md
+
+# Initialise trust policy
+nono trust init --include "program.md" --keyref "file://$HOME/.config/nono/trust-key.pem" --force
+
+# Sign the policy and program.md
+nono trust sign-policy --keyref "file://$HOME/.config/nono/trust-key.pem" trust-policy.json
+nono trust sign --keyref "file://$HOME/.config/nono/trust-key.pem" --all
 ```
 
 To re-sign after intentionally editing `program.md`:
 
 ```bash
 cd autoresearch-nono/workload
-nono trust sign --key default program.md
+nono trust sign --keyref "file://$HOME/.config/nono/trust-key.pem" --all
 ```
 
 ### Tamper detection
