@@ -64,42 +64,6 @@ attestation is configured. To use a different autoresearch clone, pass its path:
 
 ---
 
-## Attestation setup (required)
-
-`launch.sh` will refuse to start unless `program.md` has been signed. This prevents the agent
-from running with tampered instructions.
-
-```bash
-cd autoresearch-nono/workload
-
-# One-time: generate signing key
-nono trust keygen
-
-# Initialise trust policy
-nono trust init --include "program.md" --keyref "file://$HOME/.config/nono/trust-key.pem" --force
-
-# Sign the policy and program.md
-nono trust sign-policy --keyref "file://$HOME/.config/nono/trust-key.pem" trust-policy.json
-nono trust sign --keyref "file://$HOME/.config/nono/trust-key.pem" --all
-```
-
-To re-sign after intentionally editing `program.md`:
-
-```bash
-cd autoresearch-nono/workload
-nono trust sign --keyref "file://$HOME/.config/nono/trust-key.pem" --all
-```
-
-### Tamper detection
-
-```bash
-echo "# tampered" >> workload/program.md
-./launch.sh
-# → [nono] ABORT: attestation failed — program.md may have been tampered with.
-```
-
----
-
 ## How the profile was derived
 
 The profile in `profiles/autoresearch.json` was generated using `nono learn`:
