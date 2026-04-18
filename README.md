@@ -98,26 +98,13 @@ nono audit show <session-id> --json
 
 ---
 
-## Apple Silicon (MLX)
-
-For the [MLX fork](https://github.com/trevin-creator/autoresearch-mlx) on Apple Silicon,
-use the Mac profile:
-
-```bash
-cp profiles/autoresearch-mlx.json ~/.config/nono/profiles/
-# edit launch.sh: change --profile autoresearch to --profile autoresearch-mlx
-./launch.sh /path/to/autoresearch-mlx
-```
-
----
-
 ## Files
 
 ```
 workload/
   train.py               GPT model + training loop (the file the agent modifies)
   prepare.py             generic data prep (climbmix web text)
-  prepare_ibd.py         IBD-specific data prep (TCGA + MultiCaRe)
+  prepare_ibd.py         IBD data prep + tokenizer training (TCGA + MultiCaRe)
   program.md             agent instructions (generic)
   program_ibd.md         agent instructions (IBD)
   trust-policy.json      attestation policy
@@ -125,13 +112,9 @@ workload/
   .claude/               Claude Code settings for the sandboxed session
 profiles/
   claude-code-autoresearch.json  nono profile for Linux/CUDA + GPU
-  autoresearch-mlx.json          nono profile for macOS/MLX (Apple Silicon)
-showcase/
-  prepare_ibd.py         simplified reference version of data prep
-  program_ibd.md         reference program instructions
 trust/
   .gitkeep               attestation bundles are generated locally, not committed
 audit-examples/
   .gitkeep               add session excerpts here after runs
-launch.sh                sandbox launcher with graceful attestation fallback
+launch.sh                sandbox launcher with attestation enforcement
 ```
