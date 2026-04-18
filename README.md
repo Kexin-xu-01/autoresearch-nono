@@ -66,33 +66,6 @@ attestation is configured. To use a different autoresearch clone, pass its path:
 
 ---
 
-## How the profile was derived
-
-The profile in `profiles/autoresearch.json` was generated using `nono learn`:
-
-```bash
-cd /path/to/autoresearch
-nono learn -- claude
-```
-
-Running 2-3 full experiment cycles (~20-30 min) captures the stable filesystem and network
-footprint. The agent reads `program.md`, `train.py`, `prepare.py`, and `run.log` each cycle;
-writes `train.py`, `run.log`, and `results.tsv`; and spawns `uv run train.py` as a subprocess.
-
-Network-wise: Anthropic API for agent calls, HuggingFace CDN for the one-time dataset download,
-PyPI via uv for package installs. No network during training itself.
-
-The `deny_credentials` security group blocks `~/.aws`, `~/.ssh`, shell configs, and browser
-credential stores by default, without needing to enumerate them.
-
-### Child process inheritance
-
-The most important property to verify: restrictions cascade to the training subprocess spawned
-by `uv run train.py`. This is where application-level sandboxes fail. With nono's Landlock
-enforcement, the child process inherits the same policy automatically.
-
----
-
 ## Audit log
 
 Every session is recorded by nono. Query after a run:
