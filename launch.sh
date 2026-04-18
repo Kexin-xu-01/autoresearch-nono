@@ -20,20 +20,18 @@ else
     BUNDLE="${AUTORESEARCH_DIR}/program.md.bundle"
 fi
 
-# Attestation check (optional — requires persistent keyring, see README).
-# Skipped automatically if no bundle exists or if running on a headless server
-# where the keyring cannot persist between sessions (JupyterHub, cloud VMs).
-_try_verify() {
+# Attestation check — required. Run must be aborted if program.md cannot be verified.
+_verify() {
+    local program_file="${BUNDLE%.bundle}"
+
     if [[ ! -f "${BUNDLE}" ]]; then
-        echo "[nono] No program.md.bundle found — skipping attestation."
-        echo "[nono] See README to enable attestation on a desktop system."
-        return 0
+        echo "[nono] ABORT: no attestation bundle found at ${BUNDLE}."
+        echo "[nono] Run the attestation setup steps in the README before launching."
+        exit 1
     fi
 
-    local program_file="${BUNDLE%.bundle}"
     local verify_cmd="nono trust verify ${program_file}"
 
-    # Try verification. If keyring is unavailable, warn and continue rather than abort.
     if command -v gnome-keyring-daemon &>/dev/null; then
         result=$(dbus-run-session -- bash -c '
             echo "" | gnome-keyring-daemon --unlock --components=secrets &>/dev/null || true
@@ -47,19 +45,14 @@ _try_verify() {
     if [[ $rc -eq 0 ]]; then
         echo "[nono] Attestation OK."
     else
-        if echo "$result" | grep -q "ECDSA signature\|keystore\|Secret Service\|unlock prompt"; then
-            echo "[nono] WARNING: Attestation skipped — keyring not available in this environment."
-            echo "[nono] Kernel sandbox enforcement is still active."
-        else
-            echo "$result"
-            echo "[nono] ABORT: program.md attestation failed (tampering detected)."
-            exit 1
-        fi
+        echo "$result"
+        echo "[nono] ABORT: attestation failed — program.md may have been tampered with."
+        exit 1
     fi
 }
 
 echo "[nono] Checking attestation..."
-_try_verify
+_verify
 
 echo "[nono] Starting agent under kernel enforcement..."
 exec nono run \

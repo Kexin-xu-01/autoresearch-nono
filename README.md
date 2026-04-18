@@ -41,10 +41,18 @@ cd autoresearch-nono
 # 2. Install the nono profile
 cp profiles/claude-code-autoresearch.json ~/.config/nono/profiles/
 
-# 3. One-time: prepare IBD data (downloads TCGA + MultiCaRe, trains tokenizer)
+# 3. One-time: sign program.md (required — launch.sh will abort without this)
+cd workload
+nono trust keygen
+nono trust init --include "program.md" --key default
+nono trust sign-policy
+nono trust sign --key default program.md
+cd ..
+
+# 4. One-time: prepare IBD data (downloads TCGA + MultiCaRe, trains tokenizer)
 cd workload && uv run prepare_ibd.py && cd ..
 
-# 4. Launch — no path argument needed
+# 5. Launch — no path argument needed
 ./launch.sh
 ```
 
@@ -56,40 +64,32 @@ attestation is configured. To use a different autoresearch clone, pass its path:
 
 ---
 
-## Attestation (optional)
+## Attestation setup (required)
 
-Attestation lets `launch.sh` verify that `program.md` hasn't been tampered with between runs.
-It requires a persistent keyring and works best on **desktop systems** (GNOME, KDE, macOS).
-
-> **Headless servers (JupyterHub, SSH, cloud VMs):** `nono trust keygen` uses the system
-> keyring, which requires a GUI session on most Linux servers. The keyring is not persistent
-> across `dbus-run-session` invocations, so attestation cannot be set up reliably in these
-> environments. `launch.sh` detects this and skips attestation gracefully — the kernel sandbox
-> enforcement is still fully active.
-
-### Desktop setup
+`launch.sh` will refuse to start unless `program.md` has been signed. This prevents the agent
+from running with tampered instructions.
 
 ```bash
-cd /path/to/autoresearch
+cd autoresearch-nono/workload
 nono trust keygen
 nono trust init --include "program.md" --key default
 nono trust sign-policy
 nono trust sign --key default program.md
 ```
 
-After this, `./launch.sh` will verify `program.md` on every run. To re-sign after intentionally
-editing `program.md`:
+To re-sign after intentionally editing `program.md`:
 
 ```bash
-nono trust sign --key default /path/to/autoresearch/program.md
+cd autoresearch-nono/workload
+nono trust sign --key default program.md
 ```
 
 ### Tamper detection
 
 ```bash
-echo "# tampered" >> /path/to/autoresearch/program.md
-./launch.sh /path/to/autoresearch
-# → [nono] ABORT: program.md attestation failed (tampering detected).
+echo "# tampered" >> workload/program.md
+./launch.sh
+# → [nono] ABORT: attestation failed — program.md may have been tampered with.
 ```
 
 ---
