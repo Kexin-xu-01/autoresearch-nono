@@ -49,7 +49,7 @@ nono trust sign-policy
 nono trust sign --key default program.md
 cd ..
 
-# 4. One-time: prepare IBD data (downloads TCGA + MultiCaRe, trains tokenizer)
+# 4. One-time: prepare IBD data and train tokenizer
 cd workload && uv run prepare_ibd.py && cd ..
 
 # 5. Launch — no path argument needed

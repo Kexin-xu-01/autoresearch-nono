@@ -14,10 +14,9 @@ Data sources (both CC BY 4.0 — commercial and open-source use permitted):
 
 Output: ~/.cache/autoresearch/data/ — train + val parquet shards
   shard_00000.parquet  (train)
-  shard_06542.parquet  (pinned val — must match VAL_SHARD in prepare.py)
+  shard_06542.parquet  (pinned val)
 
-After running this script, run:
-  uv run prepare.py   # trains BPE tokenizer on the new data
+Also trains the BPE tokenizer on the IBD corpus. No further setup needed.
 
 Usage:
   uv run prepare_ibd.py
@@ -49,7 +48,7 @@ import torch
 CACHE_DIR = Path.home() / ".cache" / "autoresearch"
 DATA_DIR = CACHE_DIR / "data"
 RAW_DIR = CACHE_DIR / "ibd_raw"
-VAL_SHARD_IDX = 6542   # must match VAL_SHARD in prepare.py
+VAL_SHARD_IDX = 6542
 VAL_FRACTION = 0.10    # 10% held out for validation
 DOCS_PER_SHARD = 5000  # max documents per train shard
 
@@ -657,5 +656,7 @@ if __name__ == "__main__":
     build_shards(docs)
 
     print()
-    print("Done! Next step:")
-    print("  uv run prepare.py   # trains BPE tokenizer on your IBD text corpus")
+    train_tokenizer()
+
+    print()
+    print("Done! Data and tokenizer are ready. Run ./launch.sh to start the agent.")
