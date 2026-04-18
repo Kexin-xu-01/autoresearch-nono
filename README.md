@@ -65,6 +65,10 @@ cd workload && uv run prepare_ibd.py && cd ..
 ./launch.sh
 ```
 
+Once Claude starts, kick off the experiment with:
+
+> Hi — have a look at program_ibd.md and let's kick off a new experiment! Let's do the setup first.
+
 To re-sign after editing `program.md`:
 ```bash
 cd workload
