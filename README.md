@@ -44,6 +44,8 @@ cp profiles/claude-code-autoresearch.json ~/.config/nono/profiles/
 # 3. One-time: sign program.md (required — launch.sh will abort without this)
 cd workload
 nono trust keygen --keyref "file://$HOME/.config/nono/trust-key.pem"
+# Re-sign the global nono trust policy with the new key
+nono trust sign-policy --keyref "file://$HOME/.config/nono/trust-key.pem" ~/.config/nono/trust-policy.json
 nono trust init --include "program.md" --keyref "file://$HOME/.config/nono/trust-key.pem" --force
 nono trust sign-policy --keyref "file://$HOME/.config/nono/trust-key.pem" trust-policy.json
 nono trust sign --keyref "file://$HOME/.config/nono/trust-key.pem" --all
