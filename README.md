@@ -42,13 +42,20 @@ cd autoresearch-nono
 cp profiles/claude-code-autoresearch.json ~/.config/nono/profiles/
 
 # 3. One-time: sign program.md (required — launch.sh will abort without this)
-cd workload
+
+# Generate signing key
 nono trust keygen --keyref "file://$HOME/.config/nono/trust-key.pem"
-# Re-sign the global nono trust policy with the new key
-nono trust sign-policy --keyref "file://$HOME/.config/nono/trust-key.pem" ~/.config/nono/trust-policy.json
-nono trust init --include "program.md" --keyref "file://$HOME/.config/nono/trust-key.pem" --force
-nono trust sign-policy --keyref "file://$HOME/.config/nono/trust-key.pem" trust-policy.json
-nono trust sign --keyref "file://$HOME/.config/nono/trust-key.pem" --all
+
+# Set up user-level trust policy
+nono trust init --user --keyref "file://$HOME/.config/nono/trust-key.pem"
+nono trust sign-policy "$HOME/.config/nono/trust-policy.json" --keyref "file://$HOME/.config/nono/trust-key.pem"
+
+# Set up project trust policy and sign program.md
+cd workload
+nono trust init --include "program.md" --keyref "file://$HOME/.config/nono/trust-key.pem"
+nono trust sign-policy --keyref "file://$HOME/.config/nono/trust-key.pem"
+nono trust sign program.md --keyref "file://$HOME/.config/nono/trust-key.pem"
+nono trust verify program.md
 cd ..
 
 # 4. One-time: prepare IBD data and train tokenizer
@@ -58,8 +65,15 @@ cd workload && uv run prepare_ibd.py && cd ..
 ./launch.sh
 ```
 
-That's it. The sandbox enforces filesystem and network restrictions regardless of whether
-attestation is configured. To use a different autoresearch clone, pass its path:
+To re-sign after editing `program.md`:
+```bash
+cd workload
+nono trust sign program.md --keyref "file://$HOME/.config/nono/trust-key.pem"
+nono trust verify program.md
+cd ..
+```
+
+To use a different autoresearch clone, pass its path:
 ```bash
 ./launch.sh /path/to/other-autoresearch-clone
 ```
