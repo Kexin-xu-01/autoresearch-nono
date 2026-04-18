@@ -30,13 +30,14 @@ _verify() {
         exit 1
     fi
 
-    local verify_cmd="nono trust verify ${program_file}"
+    local policy="${AUTORESEARCH_DIR}/trust-policy.json"
+    local verify_cmd="nono trust verify --policy ${policy} ${program_file}"
 
     if command -v gnome-keyring-daemon &>/dev/null; then
         result=$(dbus-run-session -- bash -c '
             echo "" | gnome-keyring-daemon --unlock --components=secrets &>/dev/null || true
             sleep 1
-            nono trust verify '"${program_file}"' 2>&1
+            nono trust verify --policy '"${policy}"' '"${program_file}"' 2>&1
         ') && rc=0 || rc=$?
     else
         result=$($verify_cmd 2>&1) && rc=0 || rc=$?
