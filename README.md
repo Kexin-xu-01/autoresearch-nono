@@ -69,19 +69,6 @@ Once Claude starts, kick off the experiment with:
 
 > Hi — have a look at program_ibd.md and let's kick off a new experiment! Let's do the setup first.
 
-To re-sign after editing `program.md`:
-```bash
-cd workload
-nono trust sign program.md --keyref "file://$HOME/.config/nono/trust-key.pem"
-nono trust verify program.md
-cd ..
-```
-
-To use a different autoresearch clone, pass its path:
-```bash
-./launch.sh /path/to/other-autoresearch-clone
-```
-
 ---
 
 ## Audit log
