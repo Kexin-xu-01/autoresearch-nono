@@ -5,6 +5,6 @@
   "filesystem": {
     "allow": ["$HOME/.cache/autoresearch", "$HOME/.cache/torch", "$HOME/.cache/uv", "$HOME/.cache/huggingface", "$HOME/.local/share/uv", "$HOME/.nv", "$HOME/.triton/cache", "/tmp", "/dev/shm", "/proc"],
     "allow_file": ["$HOME/.gitconfig", "$HOME/.config/git/config"],
-    "read": ["$HOME/shared-libs", "$HOME/.nvm", "/usr/include", "/usr/local/cuda/include"]
+    "read": ["$HOME/shared-libs", "$HOME/.nvm", "/usr/include", "/usr/local/cuda/include", "/usr/local/cuda/bin"]
   }
 }
