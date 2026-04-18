@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "includes": [
+    "program.md"
+  ],
+  "publishers": [
+    {
+      "name": "file:///home/kexinxu/.config/nono/trust-key.pem",
+      "key_id": "file:///home/kexinxu/.config/nono/trust-key.pem",
+      "public_key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEPClFMTQJoJOe/voLW1LJguTDxuvPi9UhRs0YLd+MSOEJLfkW+lZOPsRfCIPo3kf0KWTLbsqR5vRU1gd6nj4JhQ=="
+    }
+  ],
+  "blocklist": {
+    "digests": [],
+    "publishers": []
+  },
+  "enforcement": "deny"
+}
