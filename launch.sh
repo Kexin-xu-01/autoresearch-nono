@@ -60,4 +60,4 @@ exec nono run \
     --allow-gpu \
     --allow-cwd \
     --workdir "${AUTORESEARCH_DIR}" \
-    -- claude
+    -- claude --dangerously-skip-permissions
