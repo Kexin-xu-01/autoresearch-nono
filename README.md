@@ -41,33 +41,50 @@ cd autoresearch-nono
 # 2. Install the nono profile
 cp profiles/claude-code-autoresearch.json ~/.config/nono/profiles/
 
-# 3. One-time: sign program_ibd.md (required — launch.sh will abort without this)
-
-# Generate signing key
+# 3. One-time: generate signing key and set up user-level trust policy
 nono trust keygen --keyref "file://$HOME/.config/nono/trust-key.pem"
-
-# Set up user-level trust policy
 nono trust init --user --keyref "file://$HOME/.config/nono/trust-key.pem"
 nono trust sign-policy "$HOME/.config/nono/trust-policy.json" --keyref "file://$HOME/.config/nono/trust-key.pem"
 
-# Set up project trust policy and sign ibd/program_ibd.md
+# 4. One-time: sign the program file for your chosen corpus (pick one)
 cd workload
+
+# Option A — IBD clinical cases (MultiCaRe)
 nono trust init --include "ibd/program_ibd.md" --keyref "file://$HOME/.config/nono/trust-key.pem"
 nono trust sign-policy --keyref "file://$HOME/.config/nono/trust-key.pem"
 nono trust sign ibd/program_ibd.md --keyref "file://$HOME/.config/nono/trust-key.pem"
 nono trust verify ibd/program_ibd.md
+
+# Option B — TCGA multi-organ cancer pathology reports
+nono trust init --include "tcga/program_tcga.md" --keyref "file://$HOME/.config/nono/trust-key.pem"
+nono trust sign-policy --keyref "file://$HOME/.config/nono/trust-key.pem"
+nono trust sign tcga/program_tcga.md --keyref "file://$HOME/.config/nono/trust-key.pem"
+nono trust verify tcga/program_tcga.md
+
+# Option C — climbmix general web text
+nono trust init --include "climbmix/program.md" --keyref "file://$HOME/.config/nono/trust-key.pem"
+nono trust sign-policy --keyref "file://$HOME/.config/nono/trust-key.pem"
+nono trust sign climbmix/program.md --keyref "file://$HOME/.config/nono/trust-key.pem"
+nono trust verify climbmix/program.md
+
 cd ..
 
-# 4. One-time: prepare IBD data and train tokenizer
-cd workload && uv run ibd/prepare_ibd.py && cd ..
+# 5. One-time: prepare data and train tokenizer for your chosen corpus (pick one)
+cd workload && uv run ibd/prepare_ibd.py && cd ..    # Option A
+cd workload && uv run tcga/prepare_tcga.py && cd ..  # Option B
+cd workload && uv run climbmix/prepare.py && cd ..   # Option C
 
-# 5. Launch — no path argument needed
+# 6. Launch — no path argument needed (launch.sh auto-detects the signed bundle)
 ./launch.sh
 ```
 
-Once Claude starts, kick off the experiment with:
+Once Claude starts, kick off the experiment with the message for your chosen corpus:
 
-> Hi — have a look at ibd/program_ibd.md and let's kick off a new experiment! Let's do the setup first.
+> **IBD**: Hi — have a look at ibd/program_ibd.md and let's kick off a new experiment! Let's do the setup first.
+
+> **TCGA**: Hi — have a look at tcga/program_tcga.md and let's kick off a new experiment! Let's do the setup first.
+
+> **Climbmix**: Hi — have a look at climbmix/program.md and let's kick off a new experiment! Let's do the setup first.
 
 ---
 
