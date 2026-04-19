@@ -45,9 +45,9 @@ import torch
 # Config
 # ---------------------------------------------------------------------------
 
-CACHE_DIR = Path.home() / ".cache" / "autoresearch"
+CACHE_DIR = Path.home() / ".cache" / "autoresearch" / "ibd"
 DATA_DIR = CACHE_DIR / "data"
-RAW_DIR = CACHE_DIR / "ibd_raw"
+RAW_DIR = CACHE_DIR / "raw"
 VAL_SHARD_IDX = 6542
 VAL_FRACTION = 0.10    # 10% held out for validation
 DOCS_PER_SHARD = 5000  # max documents per train shard
@@ -406,7 +406,7 @@ MAX_SEQ_LEN = 2048
 TIME_BUDGET = 300
 EVAL_TOKENS = 40 * 524288
 
-TOKENIZER_DIR = str(Path.home() / ".cache" / "autoresearch" / "tokenizer")
+TOKENIZER_DIR = str(CACHE_DIR / "tokenizer")
 VAL_SHARD = VAL_SHARD_IDX  # 6542
 VAL_FILENAME = f"shard_{VAL_SHARD:05d}.parquet"
 VOCAB_SIZE = 8192
