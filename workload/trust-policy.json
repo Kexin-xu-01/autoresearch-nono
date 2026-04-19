@@ -1,7 +1,7 @@
 {
   "version": 1,
   "includes": [
-    "program_ibd.md"
+    "ibd/program_ibd.md"
   ],
   "publishers": [
     {

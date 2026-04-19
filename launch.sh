@@ -14,10 +14,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AUTORESEARCH_DIR="$(realpath "${1:-$SCRIPT_DIR/workload}")"
 # Check for IBD program bundle first, fall back to generic
-if [[ -f "${AUTORESEARCH_DIR}/program_ibd.md.bundle" ]]; then
-    BUNDLE="${AUTORESEARCH_DIR}/program_ibd.md.bundle"
+if [[ -f "${AUTORESEARCH_DIR}/ibd/program_ibd.md.bundle" ]]; then
+    BUNDLE="${AUTORESEARCH_DIR}/ibd/program_ibd.md.bundle"
 else
-    BUNDLE="${AUTORESEARCH_DIR}/program.md.bundle"
+    BUNDLE="${AUTORESEARCH_DIR}/climbmix/program.md.bundle"
 fi
 
 # Attestation check — required. Run must be aborted if program.md cannot be verified.
