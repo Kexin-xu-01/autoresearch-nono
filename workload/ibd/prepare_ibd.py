@@ -118,17 +118,18 @@ def fetch_tcga_reports():
     dest_dir = RAW_DIR / "tcga"
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    dest = dest_dir / "tcga_reports.csv"
+    dest = dest_dir / "TCGA_Reports.csv.zip"
     # Remove stale file if it looks like a JSON error response (< 10 KB)
     if dest.exists() and dest.stat().st_size < 10_000:
         print(f"  Removing suspect cached file ({dest.stat().st_size} bytes) — may be an error response")
         dest.unlink()
     try:
-        download_file(TCGA_DIRECT_URL, dest, desc="tcga_reports.csv")
+        download_file(TCGA_DIRECT_URL, dest, desc="TCGA_Reports.csv.zip")
     except Exception as e:
         print(f"  WARNING: direct download failed: {e}")
-        print(f"  Manual fallback: download from https://data.mendeley.com/datasets/{MENDELEY_DATASET_ID}/1")
-        print(f"  and place CSV/parquet files in {dest_dir}")
+        print(f"  Manual fallback: download 'TCGA_Reports.csv.zip' from")
+        print(f"    https://data.mendeley.com/datasets/{MENDELEY_DATASET_ID}/1")
+        print(f"  and place it in {dest_dir}")
 
     return _load_tcga_from_dir(dest_dir)
 
