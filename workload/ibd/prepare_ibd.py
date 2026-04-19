@@ -110,7 +110,7 @@ MENDELEY_DATASET_ID = "hyg5xkznpx"
 #   https://data.mendeley.com/datasets/hyg5xkznpx/1
 TCGA_DIRECT_URL = (
     "https://data.mendeley.com/public-files/datasets/hyg5xkznpx/files/"
-    "b0c9a16b-2b24-4b0e-a849-bb80d0b3d8f9/file_downloaded"
+    "60abe141-9352-4a54-943c-3d015eabefea/file_downloaded"
 )
 
 def fetch_tcga_reports():
