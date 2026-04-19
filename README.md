@@ -50,16 +50,16 @@ nono trust keygen --keyref "file://$HOME/.config/nono/trust-key.pem"
 nono trust init --user --keyref "file://$HOME/.config/nono/trust-key.pem"
 nono trust sign-policy "$HOME/.config/nono/trust-policy.json" --keyref "file://$HOME/.config/nono/trust-key.pem"
 
-# Set up project trust policy and sign program_ibd.md
+# Set up project trust policy and sign ibd/program_ibd.md
 cd workload
-nono trust init --include "program_ibd.md" --keyref "file://$HOME/.config/nono/trust-key.pem"
+nono trust init --include "ibd/program_ibd.md" --keyref "file://$HOME/.config/nono/trust-key.pem"
 nono trust sign-policy --keyref "file://$HOME/.config/nono/trust-key.pem"
-nono trust sign program_ibd.md --keyref "file://$HOME/.config/nono/trust-key.pem"
-nono trust verify program_ibd.md
+nono trust sign ibd/program_ibd.md --keyref "file://$HOME/.config/nono/trust-key.pem"
+nono trust verify ibd/program_ibd.md
 cd ..
 
 # 4. One-time: prepare IBD data and train tokenizer
-cd workload && uv run prepare_ibd.py && cd ..
+cd workload && uv run ibd/prepare_ibd.py && cd ..
 
 # 5. Launch — no path argument needed
 ./launch.sh
@@ -67,7 +67,7 @@ cd workload && uv run prepare_ibd.py && cd ..
 
 Once Claude starts, kick off the experiment with:
 
-> Hi — have a look at program_ibd.md and let's kick off a new experiment! Let's do the setup first.
+> Hi — have a look at ibd/program_ibd.md and let's kick off a new experiment! Let's do the setup first.
 
 ---
 
@@ -108,13 +108,15 @@ nono audit show <session-id> --json
 ```
 workload/
   train.py               GPT model + training loop (the file the agent modifies)
-  prepare.py             generic data prep (climbmix web text)
-  prepare_ibd.py         IBD data prep + tokenizer training (TCGA + MultiCaRe)
-  program.md             agent instructions (generic)
-  program_ibd.md         agent instructions (IBD)
   trust-policy.json      attestation policy
   pyproject.toml         Python dependencies
   .claude/               Claude Code settings for the sandboxed session
+  ibd/
+    prepare_ibd.py       IBD data prep + tokenizer training (TCGA + MultiCaRe)
+    program_ibd.md       agent instructions (IBD)
+  climbmix/
+    prepare.py           generic data prep (climbmix web text)
+    program.md           agent instructions (generic, climbmix)
 profiles/
   claude-code-autoresearch.json  nono profile for Linux/CUDA + GPU
 trust/
