@@ -9,7 +9,7 @@ import sys
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 # Corpus selector — change to "ibd", "tcga", or "climbmix"
-CORPUS = "ibd"
+CORPUS = "tcga"
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), CORPUS))
 
 import gc
