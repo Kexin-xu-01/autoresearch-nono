@@ -111,7 +111,7 @@ MULTICARE_TEXT_COLS = [
 
 
 def fetch_multicare_ibd():
-    print("\n=== Source 2: MultiCaRe (Zenodo, CC BY 4.0) — IBD filter ===")
+    print("\n=== Source: MultiCaRe (Zenodo, CC BY 4.0) — IBD filter ===")
     dest_dir = RAW_DIR / "multicare"
     dest_dir.mkdir(parents=True, exist_ok=True)
 
