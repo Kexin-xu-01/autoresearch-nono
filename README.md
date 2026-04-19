@@ -41,7 +41,7 @@ cd autoresearch-nono
 # 2. Install the nono profile
 cp profiles/claude-code-autoresearch.json ~/.config/nono/profiles/
 
-# 3. One-time: sign program.md (required — launch.sh will abort without this)
+# 3. One-time: sign program_ibd.md (required — launch.sh will abort without this)
 
 # Generate signing key
 nono trust keygen --keyref "file://$HOME/.config/nono/trust-key.pem"
@@ -50,12 +50,12 @@ nono trust keygen --keyref "file://$HOME/.config/nono/trust-key.pem"
 nono trust init --user --keyref "file://$HOME/.config/nono/trust-key.pem"
 nono trust sign-policy "$HOME/.config/nono/trust-policy.json" --keyref "file://$HOME/.config/nono/trust-key.pem"
 
-# Set up project trust policy and sign program.md
+# Set up project trust policy and sign program_ibd.md
 cd workload
-nono trust init --include "program.md" --keyref "file://$HOME/.config/nono/trust-key.pem"
+nono trust init --include "program_ibd.md" --keyref "file://$HOME/.config/nono/trust-key.pem"
 nono trust sign-policy --keyref "file://$HOME/.config/nono/trust-key.pem"
-nono trust sign program.md --keyref "file://$HOME/.config/nono/trust-key.pem"
-nono trust verify program.md
+nono trust sign program_ibd.md --keyref "file://$HOME/.config/nono/trust-key.pem"
+nono trust verify program_ibd.md
 cd ..
 
 # 4. One-time: prepare IBD data and train tokenizer
