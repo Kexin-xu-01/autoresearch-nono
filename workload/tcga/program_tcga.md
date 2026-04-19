@@ -2,8 +2,8 @@
 
 This is an autoresearch experiment: train a small GPT on TCGA surgical pathology
 reports and autonomously improve it. The task is identical to the base autoresearch
-setup — only the training corpus has changed (TCGA GI cancer pathology reports
-instead of climbmix).
+setup — only the training corpus has changed (TCGA multi-organ cancer pathology
+reports instead of climbmix).
 
 ## Data setup (one-time, done by the human before starting)
 
@@ -132,7 +132,7 @@ LOOP FOREVER:
 
 The corpus is TCGA surgical pathology reports:
 - **TCGA-Reports**: 9,523 surgical pathology reports from The Cancer Genome Atlas
-- GI tract cases: COAD (colon adenocarcinoma) and READ (rectal adenocarcinoma)
+- Covers multiple cancer types and organs across the TCGA project
 - Source: Kefeli et al., 2024 — Mendeley Data, CC BY 4.0
 
 The text is structured pathology report language — gross descriptions, microscopic

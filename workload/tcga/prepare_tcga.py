@@ -6,7 +6,7 @@ Download and prepare TCGA surgical pathology reports for autoresearch.
 
 Data source (CC BY 4.0 — commercial and open-source use permitted):
   TCGA-Reports (Kefeli et al., 2024)
-  9,523 surgical pathology reports; GI tract cases (COAD/READ) included.
+  9,523 surgical pathology reports across multiple cancer types and organs.
   https://data.mendeley.com/datasets/hyg5xkznpx/1
 
 Output: ~/.cache/autoresearch/tcga/data/ — train + val parquet shards

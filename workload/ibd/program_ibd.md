@@ -5,10 +5,9 @@ This is an experiment to have the LLM do its own research.
 ## IBD task context
 
 The corpus is IBD clinical text (inflammatory bowel disease):
-- **TCGA-Reports**: surgical pathology reports from GI cancer tract cases (COAD/READ)
 - **MultiCaRe**: PMC open-access clinical case reports filtered for IBD keywords
 
-Both sources are CC BY 4.0. The text is domain-specific medical language — dense with
+Source is CC BY 4.0. The text is domain-specific medical language — dense with
 abbreviations, procedural terminology, and structured report formats. Expect lower
 perplexity (better val_bpb) than general web text at the same model size, but the
 tokenizer and architecture choices that work well for general text may not be optimal here.
