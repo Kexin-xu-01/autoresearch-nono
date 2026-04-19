@@ -233,15 +233,17 @@ def fetch_multicare_ibd():
     files = record.get("files") or record.get("entries", [])
     print(f"  Found {len(files)} file(s) in Zenodo record {ZENODO_RECORD_ID}")
 
+    # Only download the clinical text files — skip images, PMC zips, metadata
+    MULTICARE_TEXT_FILES = {"cases.parquet", "abstracts.parquet"}
+
     for f in files:
         # Support both Zenodo v1 and v2 key naming
         fname = f.get("filename") or f.get("key", "")
         size_bytes = f.get("filesize") or f.get("size", 0)
         size_mb = size_bytes / 1e6
 
-        # Skip non-tabular files (images, PDFs etc)
-        if not any(fname.lower().endswith(ext) for ext in (".csv", ".tsv", ".zip", ".json", ".parquet")):
-            print(f"  Skipping non-text file: {fname} ({size_mb:.0f} MB)")
+        if fname not in MULTICARE_TEXT_FILES:
+            print(f"  Skipping: {fname} ({size_mb:.0f} MB)")
             continue
 
         # Build download URL (v1: links.download, v2: links.content)
