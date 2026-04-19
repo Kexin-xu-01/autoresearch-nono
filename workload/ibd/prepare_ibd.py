@@ -77,20 +77,27 @@ def download_file(url, dest, desc=""):
     print(f"  Downloading {desc or dest.name} ...")
     r = requests.get(url, stream=True, timeout=120)
     r.raise_for_status()
+    content_type = r.headers.get("content-type", "")
+    if "json" in content_type or "html" in content_type:
+        raise RuntimeError(f"Unexpected content-type '{content_type}' — URL may have moved or returned an error page")
     total = int(r.headers.get("content-length", 0))
     downloaded = 0
     tmp = dest.with_suffix(dest.suffix + ".tmp")
-    with open(tmp, "wb") as f:
-        for chunk in r.iter_content(chunk_size=1024 * 1024):
-            if chunk:
-                f.write(chunk)
-                downloaded += len(chunk)
-                if total:
-                    pct = 100 * downloaded / total
-                    print(f"\r    {downloaded / 1e6:.1f} / {total / 1e6:.1f} MB  ({pct:.0f}%)",
-                          end="", flush=True)
-    print()
-    tmp.rename(dest)
+    try:
+        with open(tmp, "wb") as f:
+            for chunk in r.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    f.write(chunk)
+                    downloaded += len(chunk)
+                    if total:
+                        pct = 100 * downloaded / total
+                        print(f"\r    {downloaded / 1e6:.1f} / {total / 1e6:.1f} MB  ({pct:.0f}%)",
+                              end="", flush=True)
+        print()
+        tmp.rename(dest)
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +119,10 @@ def fetch_tcga_reports():
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     dest = dest_dir / "tcga_reports.csv"
+    # Remove stale file if it looks like a JSON error response (< 10 KB)
+    if dest.exists() and dest.stat().st_size < 10_000:
+        print(f"  Removing suspect cached file ({dest.stat().st_size} bytes) — may be an error response")
+        dest.unlink()
     try:
         download_file(TCGA_DIRECT_URL, dest, desc="tcga_reports.csv")
     except Exception as e:
