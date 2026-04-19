@@ -1,7 +1,6 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git -C /home/kexinxu/autoresearch branch -a)",
       "Bash(git checkout:*)",
       "WebSearch",
       "WebFetch(domain:www.physionet.org)",
