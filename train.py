@@ -5,8 +5,12 @@ Usage: uv run train.py
 """
 
 import os
+import sys
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+# Corpus selector — change to "ibd", "tcga", or "climbmix"
+CORPUS = "ibd"
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), CORPUS))
 
 import gc
 import math
@@ -25,7 +29,7 @@ _ddu._cuda_system_info_comment = lambda: ""
 import torch._dynamo.repro.after_aot as _aot
 _aot._cuda_system_info_comment = lambda: ""
 
-from prepare_ibd import MAX_SEQ_LEN, TIME_BUDGET, Tokenizer, make_dataloader, evaluate_bpb
+from corpus import MAX_SEQ_LEN, TIME_BUDGET, Tokenizer, make_dataloader, evaluate_bpb
 
 # ---------------------------------------------------------------------------
 # GPT Model

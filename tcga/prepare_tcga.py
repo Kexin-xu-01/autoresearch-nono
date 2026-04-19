@@ -1,129 +1,228 @@
+#!/usr/bin/env python3
 """
-One-time data preparation for autoresearch experiments.
-Downloads data shards and trains a BPE tokenizer.
+prepare_tcga.py
+
+Download and prepare TCGA surgical pathology reports for autoresearch.
+
+Data source (CC BY 4.0 — commercial and open-source use permitted):
+  TCGA-Reports (Kefeli et al., 2024)
+  9,523 surgical pathology reports across multiple cancer types and organs.
+  https://data.mendeley.com/datasets/hyg5xkznpx/1
+
+Output: ~/.cache/autoresearch/tcga/data/ — train + val parquet shards
+
+Also trains the BPE tokenizer on the TCGA corpus. No further setup needed.
 
 Usage:
-    python prepare.py                  # full prep (download + tokenizer)
-    python prepare.py --num-shards 8   # download only 8 shards (for testing)
-
-Data and tokenizer are stored in ~/.cache/autoresearch/.
+  uv run tcga/prepare_tcga.py
 """
 
+import io
+import math
 import os
+import pickle
+import random
 import sys
 import time
-import math
-import argparse
-import pickle
-from multiprocessing import Pool
+import zipfile
+from pathlib import Path
 
-import requests
+import pandas as pd
+import pyarrow as pa
 import pyarrow.parquet as pq
+import requests
 import rustbpe
 import tiktoken
 import torch
 
 # ---------------------------------------------------------------------------
-# Constants (fixed, do not modify)
+# Config
 # ---------------------------------------------------------------------------
 
-MAX_SEQ_LEN = 2048       # context length
-TIME_BUDGET = 300        # training time budget in seconds (5 minutes)
-EVAL_TOKENS = 40 * 524288  # number of tokens for val eval
+CACHE_DIR = Path.home() / ".cache" / "autoresearch" / "tcga"
+DATA_DIR = CACHE_DIR / "data"
+RAW_DIR = CACHE_DIR / "raw"
+VAL_SHARD_IDX = 6542
+VAL_FRACTION = 0.10
+DOCS_PER_SHARD = 5000
 
 # ---------------------------------------------------------------------------
-# Configuration
+# Download helpers
 # ---------------------------------------------------------------------------
 
-CACHE_DIR = os.path.join(os.path.expanduser("~"), ".cache", "autoresearch")
-DATA_DIR = os.path.join(CACHE_DIR, "data")
-TOKENIZER_DIR = os.path.join(CACHE_DIR, "tokenizer")
-BASE_URL = "https://huggingface.co/datasets/karpathy/climbmix-400b-shuffle/resolve/main"
-MAX_SHARD = 6542 # the last datashard is shard_06542.parquet
-VAL_SHARD = MAX_SHARD  # pinned validation shard (shard_06542)
+def download_file(url, dest, desc=""):
+    """Download url → dest, with MB progress. Skip if dest already exists."""
+    if dest.exists():
+        print(f"  Cached: {dest.name}")
+        return
+    print(f"  Downloading {desc or dest.name} ...")
+    r = requests.get(url, stream=True, timeout=120)
+    r.raise_for_status()
+    content_type = r.headers.get("content-type", "")
+    if "json" in content_type or "html" in content_type:
+        raise RuntimeError(f"Unexpected content-type '{content_type}' — URL may have moved or returned an error page")
+    total = int(r.headers.get("content-length", 0))
+    downloaded = 0
+    tmp = dest.with_suffix(dest.suffix + ".tmp")
+    try:
+        with open(tmp, "wb") as f:
+            for chunk in r.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    f.write(chunk)
+                    downloaded += len(chunk)
+                    if total:
+                        pct = 100 * downloaded / total
+                        print(f"\r    {downloaded / 1e6:.1f} / {total / 1e6:.1f} MB  ({pct:.0f}%)",
+                              end="", flush=True)
+        print()
+        tmp.rename(dest)
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
+# ---------------------------------------------------------------------------
+# Source: TCGA-Reports (Mendeley Data, CC BY 4.0)
+# ---------------------------------------------------------------------------
+
+MENDELEY_DATASET_ID = "hyg5xkznpx"
+TCGA_DIRECT_URL = (
+    "https://data.mendeley.com/public-files/datasets/hyg5xkznpx/files/"
+    "60abe141-9352-4a54-943c-3d015eabefea/file_downloaded"
+)
+
+def fetch_tcga_reports():
+    print("\n=== TCGA-Reports (Mendeley Data, CC BY 4.0) ===")
+    dest_dir = RAW_DIR / "tcga"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    dest = dest_dir / "TCGA_Reports.csv.zip"
+    if dest.exists() and dest.stat().st_size < 10_000:
+        print(f"  Removing suspect cached file ({dest.stat().st_size} bytes) — may be an error response")
+        dest.unlink()
+    try:
+        download_file(TCGA_DIRECT_URL, dest, desc="TCGA_Reports.csv.zip")
+    except Exception as e:
+        print(f"  WARNING: direct download failed: {e}")
+        print(f"  Manual fallback: download 'TCGA_Reports.csv.zip' from")
+        print(f"    https://data.mendeley.com/datasets/{MENDELEY_DATASET_ID}/1")
+        print(f"  and place it in {dest_dir}")
+
+    return _load_tcga_from_dir(dest_dir)
+
+
+def _load_tcga_from_dir(directory):
+    docs = []
+    paths = (list(directory.glob("*.csv")) + list(directory.glob("*.tsv"))
+             + list(directory.glob("*.zip")) + list(directory.glob("*.parquet")))
+    if not paths:
+        print(f"  No data files found in {directory}. Skipping TCGA-Reports.")
+        return docs
+    for path in paths:
+        docs.extend(_read_tabular_file(path))
+    print(f"  TCGA-Reports: {len(docs)} documents loaded")
+    return docs
+
+
+def _read_tabular_file(path):
+    docs = []
+    try:
+        if path.suffix == ".parquet":
+            df = pq.read_table(path).to_pandas()
+            docs.extend(_df_to_texts(df))
+        elif path.suffix == ".zip":
+            with zipfile.ZipFile(path) as zf:
+                for name in zf.namelist():
+                    if name.endswith((".csv", ".tsv")):
+                        with zf.open(name) as fh:
+                            df = _read_df(fh, name)
+                            docs.extend(_df_to_texts(df))
+        else:
+            df = _read_df(path, str(path))
+            docs.extend(_df_to_texts(df))
+    except Exception as e:
+        print(f"  WARNING: could not read {path.name}: {e}")
+    return docs
+
+
+def _read_df(path_or_fh, name):
+    sep = "\t" if str(name).endswith(".tsv") else ","
+    return pd.read_csv(path_or_fh, sep=sep, low_memory=False)
+
+
+def _df_to_texts(df):
+    candidates = [
+        "report_text", "text", "path_report", "pathology_report",
+        "report", "narrative", "diagnosis", "findings", "abstract",
+        "case_text", "clinical_text",
+    ]
+    col = next((c for c in candidates if c in df.columns), None)
+    if col is None:
+        str_cols = df.select_dtypes(include="object").columns.tolist()
+        if not str_cols:
+            return []
+        col = max(str_cols, key=lambda c: df[c].dropna().str.len().mean())
+        print(f"  Auto-selected column '{col}'")
+    texts = df[col].dropna().astype(str).str.strip().tolist()
+    return [t for t in texts if len(t) > 80]
+
+
+# ---------------------------------------------------------------------------
+# Build shards
+# ---------------------------------------------------------------------------
+
+def build_shards(docs):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    random.seed(42)
+    random.shuffle(docs)
+
+    n_val = max(50, int(len(docs) * VAL_FRACTION))
+    val_docs = docs[:n_val]
+    train_docs = docs[n_val:]
+
+    print(f"\n=== Building shards ===")
+    print(f"  Total: {len(docs)}  Train: {len(train_docs)}  Val: {len(val_docs)}")
+
+    def write_shard(shard_docs, idx):
+        path = DATA_DIR / f"shard_{idx:05d}.parquet"
+        df = pd.DataFrame({"text": shard_docs})
+        pq.write_table(pa.Table.from_pandas(df, preserve_index=False), path)
+        kb = path.stat().st_size / 1024
+        print(f"  Wrote {path.name}  ({len(shard_docs)} docs, {kb:.0f} KB)")
+
+    write_shard(val_docs, VAL_SHARD_IDX)
+
+    shard_idx = 0
+    for i in range(0, len(train_docs), DOCS_PER_SHARD):
+        write_shard(train_docs[i:i + DOCS_PER_SHARD], shard_idx)
+        shard_idx += 1
+
+
+# ---------------------------------------------------------------------------
+# Runtime constants and utilities (imported by train.py)
+# ---------------------------------------------------------------------------
+
+MAX_SEQ_LEN = 2048
+TIME_BUDGET = 300
+EVAL_TOKENS = 40 * 524288
+
+TOKENIZER_DIR = str(CACHE_DIR / "tokenizer")
+VAL_SHARD = VAL_SHARD_IDX
 VAL_FILENAME = f"shard_{VAL_SHARD:05d}.parquet"
 VOCAB_SIZE = 8192
 
-# BPE split pattern (GPT-4 style, with \p{N}{1,2} instead of {1,3})
 SPLIT_PATTERN = r"""'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,2}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"""
-
 SPECIAL_TOKENS = [f"<|reserved_{i}|>" for i in range(4)]
 BOS_TOKEN = "<|reserved_0|>"
 
-# ---------------------------------------------------------------------------
-# Data download
-# ---------------------------------------------------------------------------
-
-def download_single_shard(index):
-    """Download one parquet shard with retries. Returns True on success."""
-    filename = f"shard_{index:05d}.parquet"
-    filepath = os.path.join(DATA_DIR, filename)
-    if os.path.exists(filepath):
-        return True
-
-    url = f"{BASE_URL}/{filename}"
-    max_attempts = 5
-    for attempt in range(1, max_attempts + 1):
-        try:
-            response = requests.get(url, stream=True, timeout=30)
-            response.raise_for_status()
-            temp_path = filepath + ".tmp"
-            with open(temp_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=1024 * 1024):
-                    if chunk:
-                        f.write(chunk)
-            os.rename(temp_path, filepath)
-            print(f"  Downloaded {filename}")
-            return True
-        except (requests.RequestException, IOError) as e:
-            print(f"  Attempt {attempt}/{max_attempts} failed for {filename}: {e}")
-            for path in [filepath + ".tmp", filepath]:
-                if os.path.exists(path):
-                    try:
-                        os.remove(path)
-                    except OSError:
-                        pass
-            if attempt < max_attempts:
-                time.sleep(2 ** attempt)
-    return False
-
-
-def download_data(num_shards, download_workers=8):
-    """Download training shards + pinned validation shard."""
-    os.makedirs(DATA_DIR, exist_ok=True)
-    num_train = min(num_shards, MAX_SHARD)
-    ids = list(range(num_train))
-    if VAL_SHARD not in ids:
-        ids.append(VAL_SHARD)
-
-    # Count what's already downloaded
-    existing = sum(1 for i in ids if os.path.exists(os.path.join(DATA_DIR, f"shard_{i:05d}.parquet")))
-    if existing == len(ids):
-        print(f"Data: all {len(ids)} shards already downloaded at {DATA_DIR}")
-        return
-
-    needed = len(ids) - existing
-    print(f"Data: downloading {needed} shards ({existing} already exist)...")
-
-    workers = max(1, min(download_workers, needed))
-    with Pool(processes=workers) as pool:
-        results = pool.map(download_single_shard, ids)
-
-    ok = sum(1 for r in results if r)
-    print(f"Data: {ok}/{len(ids)} shards ready at {DATA_DIR}")
-
-# ---------------------------------------------------------------------------
-# Tokenizer training
-# ---------------------------------------------------------------------------
 
 def list_parquet_files():
-    """Return sorted list of parquet file paths in the data directory."""
     files = sorted(f for f in os.listdir(DATA_DIR) if f.endswith(".parquet") and not f.endswith(".tmp"))
     return [os.path.join(DATA_DIR, f) for f in files]
 
 
 def text_iterator(max_chars=1_000_000_000, doc_cap=10_000):
-    """Yield documents from training split (all shards except pinned val shard)."""
     parquet_paths = [p for p in list_parquet_files() if not p.endswith(VAL_FILENAME)]
     nchars = 0
     for filepath in parquet_paths:
@@ -139,7 +238,6 @@ def text_iterator(max_chars=1_000_000_000, doc_cap=10_000):
 
 
 def train_tokenizer():
-    """Train BPE tokenizer using rustbpe, save as tiktoken pickle."""
     tokenizer_pkl = os.path.join(TOKENIZER_DIR, "tokenizer.pkl")
     token_bytes_path = os.path.join(TOKENIZER_DIR, "token_bytes.pt")
 
@@ -151,10 +249,9 @@ def train_tokenizer():
 
     parquet_files = list_parquet_files()
     if len(parquet_files) < 2:
-        print("Tokenizer: need at least 2 data shards (1 train + 1 val). Download more data first.")
+        print("Tokenizer: need at least 2 data shards (1 train + 1 val). Run prepare_tcga.py first.")
         sys.exit(1)
 
-    # --- Train with rustbpe ---
     print("Tokenizer: training BPE tokenizer...")
     t0 = time.time()
 
@@ -162,7 +259,6 @@ def train_tokenizer():
     vocab_size_no_special = VOCAB_SIZE - len(SPECIAL_TOKENS)
     tokenizer.train_from_iterator(text_iterator(), vocab_size_no_special, pattern=SPLIT_PATTERN)
 
-    # Build tiktoken encoding from trained merges
     pattern = tokenizer.get_pattern()
     mergeable_ranks = {bytes(k): v for k, v in tokenizer.get_mergeable_ranks()}
     tokens_offset = len(mergeable_ranks)
@@ -174,14 +270,12 @@ def train_tokenizer():
         special_tokens=special_tokens,
     )
 
-    # Save tokenizer
     with open(tokenizer_pkl, "wb") as f:
         pickle.dump(enc, f)
 
     t1 = time.time()
     print(f"Tokenizer: trained in {t1 - t0:.1f}s, saved to {tokenizer_pkl}")
 
-    # --- Build token_bytes lookup for BPB evaluation ---
     print("Tokenizer: building token_bytes lookup...")
     special_set = set(SPECIAL_TOKENS)
     token_bytes_list = []
@@ -195,20 +289,14 @@ def train_tokenizer():
     torch.save(token_bytes_tensor, token_bytes_path)
     print(f"Tokenizer: saved token_bytes to {token_bytes_path}")
 
-    # Sanity check
     test = "Hello world! Numbers: 123. Unicode: 你好"
     encoded = enc.encode_ordinary(test)
     decoded = enc.decode(encoded)
     assert decoded == test, f"Tokenizer roundtrip failed: {test!r} -> {decoded!r}"
     print(f"Tokenizer: sanity check passed (vocab_size={enc.n_vocab})")
 
-# ---------------------------------------------------------------------------
-# Runtime utilities (imported by train.py)
-# ---------------------------------------------------------------------------
 
 class Tokenizer:
-    """Minimal tokenizer wrapper. Training is handled above."""
-
     def __init__(self, enc):
         self.enc = enc
         self.bos_token_id = enc.encode_single_token(BOS_TOKEN)
@@ -252,9 +340,8 @@ def get_token_bytes(device="cpu"):
 
 
 def _document_batches(split, tokenizer_batch_size=128):
-    """Infinite iterator over document batches from parquet files."""
     parquet_paths = list_parquet_files()
-    assert len(parquet_paths) > 0, "No parquet files found. Run prepare.py first."
+    assert len(parquet_paths) > 0, "No parquet files found. Run prepare_tcga.py first."
     val_path = os.path.join(DATA_DIR, VAL_FILENAME)
     if split == "train":
         parquet_paths = [p for p in parquet_paths if p != val_path]
@@ -274,12 +361,6 @@ def _document_batches(split, tokenizer_batch_size=128):
 
 
 def make_dataloader(tokenizer, B, T, split, buffer_size=1000):
-    """
-    BOS-aligned dataloader with best-fit packing.
-    Every row starts with BOS. Documents packed using best-fit to minimize cropping.
-    When no document fits remaining space, crops shortest doc to fill exactly.
-    100% utilization (no padding).
-    """
     assert split in ["train", "val"]
     row_capacity = T + 1
     batches = _document_batches(split)
@@ -293,7 +374,6 @@ def make_dataloader(tokenizer, B, T, split, buffer_size=1000):
         token_lists = tokenizer.encode(doc_batch, prepend=bos_token)
         doc_buffer.extend(token_lists)
 
-    # Pre-allocate buffers: [inputs (B*T) | targets (B*T)]
     row_buffer = torch.empty((B, row_capacity), dtype=torch.long)
     cpu_buffer = torch.empty(2 * B * T, dtype=torch.long, pin_memory=True)
     gpu_buffer = torch.empty(2 * B * T, dtype=torch.long, device="cuda")
@@ -308,10 +388,7 @@ def make_dataloader(tokenizer, B, T, split, buffer_size=1000):
             while pos < row_capacity:
                 while len(doc_buffer) < buffer_size:
                     refill_buffer()
-
                 remaining = row_capacity - pos
-
-                # Find largest doc that fits entirely
                 best_idx = -1
                 best_len = 0
                 for i, doc in enumerate(doc_buffer):
@@ -319,36 +396,23 @@ def make_dataloader(tokenizer, B, T, split, buffer_size=1000):
                     if doc_len <= remaining and doc_len > best_len:
                         best_idx = i
                         best_len = doc_len
-
                 if best_idx >= 0:
                     doc = doc_buffer.pop(best_idx)
                     row_buffer[row_idx, pos:pos + len(doc)] = torch.tensor(doc, dtype=torch.long)
                     pos += len(doc)
                 else:
-                    # No doc fits — crop shortest to fill remaining
                     shortest_idx = min(range(len(doc_buffer)), key=lambda i: len(doc_buffer[i]))
                     doc = doc_buffer.pop(shortest_idx)
                     row_buffer[row_idx, pos:pos + remaining] = torch.tensor(doc[:remaining], dtype=torch.long)
                     pos += remaining
-
         cpu_inputs.copy_(row_buffer[:, :-1])
         cpu_targets.copy_(row_buffer[:, 1:])
         gpu_buffer.copy_(cpu_buffer, non_blocking=True)
         yield inputs, targets, epoch
 
-# ---------------------------------------------------------------------------
-# Evaluation (DO NOT CHANGE — this is the fixed metric)
-# ---------------------------------------------------------------------------
 
 @torch.no_grad()
 def evaluate_bpb(model, tokenizer, batch_size):
-    """
-    Bits per byte (BPB): vocab size-independent evaluation metric.
-    Sums per-token cross-entropy (in nats), sums target byte lengths,
-    then converts nats/byte to bits/byte. Special tokens (byte length 0)
-    are excluded from both sums.
-    Uses fixed MAX_SEQ_LEN so results are comparable across configs.
-    """
     token_bytes = get_token_bytes(device="cuda")
     val_loader = make_dataloader(tokenizer, batch_size, MAX_SEQ_LEN, "val")
     steps = EVAL_TOKENS // (batch_size * MAX_SEQ_LEN)
@@ -364,26 +428,33 @@ def evaluate_bpb(model, tokenizer, batch_size):
         total_bytes += nbytes.sum().item()
     return total_nats / (math.log(2) * total_bytes)
 
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Prepare data and tokenizer for autoresearch")
-    parser.add_argument("--num-shards", type=int, default=10, help="Number of training shards to download (-1 = all). Val shard is always pinned.")
-    parser.add_argument("--download-workers", type=int, default=8, help="Number of parallel download workers")
-    args = parser.parse_args()
-
-    num_shards = MAX_SHARD if args.num_shards == -1 else args.num_shards
-
-    print(f"Cache directory: {CACHE_DIR}")
+    print("TCGA Pathology Reports — Data Preparation")
+    print("=" * 40)
+    print(f"Output: {DATA_DIR}")
+    print()
+    print("License: CC BY 4.0 — commercial and open-source use permitted.")
     print()
 
-    # Step 1: Download data
-    download_data(num_shards, download_workers=args.download_workers)
-    print()
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Step 2: Train tokenizer
+    docs = fetch_tcga_reports()
+
+    if not docs:
+        print("\nERROR: No documents collected. Check the download errors above.")
+        print(f"  Manual download: https://data.mendeley.com/datasets/{MENDELEY_DATASET_ID}/1")
+        print(f"  Place 'TCGA_Reports.csv.zip' in {RAW_DIR / 'tcga'}")
+        sys.exit(1)
+
+    build_shards(docs)
+
+    print()
     train_tokenizer()
+
     print()
-    print("Done! Ready to train.")
+    print("Done! Data and tokenizer are ready.")

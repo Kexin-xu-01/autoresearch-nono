@@ -1,7 +1,7 @@
 {
   "version": 1,
   "includes": [
-    "program.md"
+    "tcga/program_tcga.md"
   ],
   "publishers": [
     {

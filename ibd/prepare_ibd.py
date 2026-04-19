@@ -2,24 +2,19 @@
 """
 prepare_ibd.py
 
-Download and prepare IBD-relevant pathology/clinical text for autoresearch.
+Download and prepare IBD clinical case reports for autoresearch.
 
-Data sources (both CC BY 4.0 — commercial and open-source use permitted):
-  1. TCGA-Reports (Kefeli et al., 2024)
-     9,523 surgical pathology reports; GI tract reports (COAD/READ) included.
-     https://data.mendeley.com/datasets/hyg5xkznpx/1
-  2. MultiCaRe (Bitterman et al., 2023)
-     96,000+ PMC open-access clinical case reports, filtered for IBD.
-     https://zenodo.org/records/10079370
+Data source (CC BY 4.0 — commercial and open-source use permitted):
+  MultiCaRe (Bitterman et al., 2023)
+  96,000+ PMC open-access clinical case reports, filtered for IBD keywords.
+  https://zenodo.org/records/10079370
 
-Output: ~/.cache/autoresearch/data/ — train + val parquet shards
-  shard_00000.parquet  (train)
-  shard_06542.parquet  (pinned val)
+Output: ~/.cache/autoresearch/ibd/data/ — train + val parquet shards
 
 Also trains the BPE tokenizer on the IBD corpus. No further setup needed.
 
 Usage:
-  uv run prepare_ibd.py
+  uv run ibd/prepare_ibd.py
 """
 
 import io
@@ -45,9 +40,9 @@ import torch
 # Config
 # ---------------------------------------------------------------------------
 
-CACHE_DIR = Path.home() / ".cache" / "autoresearch"
+CACHE_DIR = Path.home() / ".cache" / "autoresearch" / "ibd"
 DATA_DIR = CACHE_DIR / "data"
-RAW_DIR = CACHE_DIR / "ibd_raw"
+RAW_DIR = CACHE_DIR / "raw"
 VAL_SHARD_IDX = 6542
 VAL_FRACTION = 0.10    # 10% held out for validation
 DOCS_PER_SHARD = 5000  # max documents per train shard
@@ -77,116 +72,31 @@ def download_file(url, dest, desc=""):
     print(f"  Downloading {desc or dest.name} ...")
     r = requests.get(url, stream=True, timeout=120)
     r.raise_for_status()
+    content_type = r.headers.get("content-type", "")
+    if "json" in content_type or "html" in content_type:
+        raise RuntimeError(f"Unexpected content-type '{content_type}' — URL may have moved or returned an error page")
     total = int(r.headers.get("content-length", 0))
     downloaded = 0
     tmp = dest.with_suffix(dest.suffix + ".tmp")
-    with open(tmp, "wb") as f:
-        for chunk in r.iter_content(chunk_size=1024 * 1024):
-            if chunk:
-                f.write(chunk)
-                downloaded += len(chunk)
-                if total:
-                    pct = 100 * downloaded / total
-                    print(f"\r    {downloaded / 1e6:.1f} / {total / 1e6:.1f} MB  ({pct:.0f}%)",
-                          end="", flush=True)
-    print()
-    tmp.rename(dest)
-
-
-# ---------------------------------------------------------------------------
-# Source 1: TCGA-Reports (Mendeley Data, CC BY 4.0)
-# ---------------------------------------------------------------------------
-
-MENDELEY_DATASET_ID = "hyg5xkznpx"
-# Direct download URL for the TCGA-Reports CSV (Mendeley Data, CC BY 4.0).
-# If this URL breaks, download manually from:
-#   https://data.mendeley.com/datasets/hyg5xkznpx/1
-TCGA_DIRECT_URL = (
-    "https://data.mendeley.com/public-files/datasets/hyg5xkznpx/files/"
-    "b0c9a16b-2b24-4b0e-a849-bb80d0b3d8f9/file_downloaded"
-)
-
-def fetch_tcga_reports():
-    print("\n=== Source 1: TCGA-Reports (Mendeley Data, CC BY 4.0) ===")
-    dest_dir = RAW_DIR / "tcga"
-    dest_dir.mkdir(parents=True, exist_ok=True)
-
-    dest = dest_dir / "tcga_reports.csv"
     try:
-        download_file(TCGA_DIRECT_URL, dest, desc="tcga_reports.csv")
-    except Exception as e:
-        print(f"  WARNING: direct download failed: {e}")
-        print(f"  Manual fallback: download from https://data.mendeley.com/datasets/{MENDELEY_DATASET_ID}/1")
-        print(f"  and place CSV/parquet files in {dest_dir}")
-
-    return _load_tcga_from_dir(dest_dir)
-
-
-def _load_tcga_from_dir(directory):
-    """Load all CSV/TSV/ZIP/parquet files in directory and extract pathology report text."""
-    docs = []
-    paths = (list(directory.glob("*.csv")) + list(directory.glob("*.tsv"))
-             + list(directory.glob("*.zip")) + list(directory.glob("*.parquet")))
-    if not paths:
-        print(f"  No data files found in {directory}. Skipping TCGA-Reports.")
-        return docs
-    for path in paths:
-        docs.extend(_read_tabular_file(path, source="TCGA"))
-    print(f"  TCGA-Reports: {len(docs)} documents loaded")
-    return docs
-
-
-def _read_tabular_file(path, source=""):
-    """Read a CSV/TSV/ZIP/parquet and extract free-text strings from the best text column."""
-    docs = []
-    try:
-        if path.suffix == ".parquet":
-            import pyarrow.parquet as pq
-            df = pq.read_table(path).to_pandas()
-            docs.extend(_df_to_texts(df, source))
-            return docs
-        elif path.suffix == ".zip":
-            with zipfile.ZipFile(path) as zf:
-                for name in zf.namelist():
-                    if name.endswith((".csv", ".tsv")):
-                        with zf.open(name) as fh:
-                            df = _read_df(fh, name)
-                            docs.extend(_df_to_texts(df, source))
-        else:
-            df = _read_df(path, str(path))
-            docs.extend(_df_to_texts(df, source))
-    except Exception as e:
-        print(f"  WARNING: could not read {path.name}: {e}")
-    return docs
-
-
-def _read_df(path_or_fh, name):
-    sep = "\t" if str(name).endswith(".tsv") else ","
-    return pd.read_csv(path_or_fh, sep=sep, low_memory=False)
-
-
-def _df_to_texts(df, source=""):
-    """Find the richest text column and return non-empty strings."""
-    # Priority list of column names likely to hold free-text reports
-    candidates = [
-        "report_text", "text", "path_report", "pathology_report",
-        "report", "narrative", "diagnosis", "findings", "abstract",
-        "case_text", "clinical_text",
-    ]
-    col = next((c for c in candidates if c in df.columns), None)
-    if col is None:
-        # Fall back: pick the object column with the longest average text
-        str_cols = df.select_dtypes(include="object").columns.tolist()
-        if not str_cols:
-            return []
-        col = max(str_cols, key=lambda c: df[c].dropna().str.len().mean())
-        print(f"  Auto-selected column '{col}' in {source}")
-    texts = df[col].dropna().astype(str).str.strip().tolist()
-    return [t for t in texts if len(t) > 80]
+        with open(tmp, "wb") as f:
+            for chunk in r.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    f.write(chunk)
+                    downloaded += len(chunk)
+                    if total:
+                        pct = 100 * downloaded / total
+                        print(f"\r    {downloaded / 1e6:.1f} / {total / 1e6:.1f} MB  ({pct:.0f}%)",
+                              end="", flush=True)
+        print()
+        tmp.rename(dest)
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 # ---------------------------------------------------------------------------
-# Source 2: MultiCaRe (Zenodo, CC BY 4.0) — IBD-filtered
+# Source: MultiCaRe (Zenodo, CC BY 4.0) — IBD-filtered
 # ---------------------------------------------------------------------------
 
 ZENODO_RECORD_ID = "10079370"
@@ -201,7 +111,7 @@ MULTICARE_TEXT_COLS = [
 
 
 def fetch_multicare_ibd():
-    print("\n=== Source 2: MultiCaRe (Zenodo, CC BY 4.0) — IBD filter ===")
+    print("\n=== Source: MultiCaRe (Zenodo, CC BY 4.0) — IBD filter ===")
     dest_dir = RAW_DIR / "multicare"
     dest_dir.mkdir(parents=True, exist_ok=True)
 
@@ -221,15 +131,17 @@ def fetch_multicare_ibd():
     files = record.get("files") or record.get("entries", [])
     print(f"  Found {len(files)} file(s) in Zenodo record {ZENODO_RECORD_ID}")
 
+    # Only download the clinical text files — skip images, PMC zips, metadata
+    MULTICARE_TEXT_FILES = {"cases.parquet", "abstracts.parquet"}
+
     for f in files:
         # Support both Zenodo v1 and v2 key naming
         fname = f.get("filename") or f.get("key", "")
         size_bytes = f.get("filesize") or f.get("size", 0)
         size_mb = size_bytes / 1e6
 
-        # Skip non-tabular files (images, PDFs etc)
-        if not any(fname.lower().endswith(ext) for ext in (".csv", ".tsv", ".zip", ".json", ".parquet")):
-            print(f"  Skipping non-text file: {fname} ({size_mb:.0f} MB)")
+        if fname not in MULTICARE_TEXT_FILES:
+            print(f"  Skipping: {fname} ({size_mb:.0f} MB)")
             continue
 
         # Build download URL (v1: links.download, v2: links.content)
@@ -406,7 +318,7 @@ MAX_SEQ_LEN = 2048
 TIME_BUDGET = 300
 EVAL_TOKENS = 40 * 524288
 
-TOKENIZER_DIR = str(Path.home() / ".cache" / "autoresearch" / "tokenizer")
+TOKENIZER_DIR = str(CACHE_DIR / "tokenizer")
 VAL_SHARD = VAL_SHARD_IDX  # 6542
 VAL_FILENAME = f"shard_{VAL_SHARD:05d}.parquet"
 VOCAB_SIZE = 8192
@@ -448,7 +360,7 @@ def train_tokenizer():
 
     parquet_files = list_parquet_files()
     if len(parquet_files) < 2:
-        print("Tokenizer: need at least 2 data shards (1 train + 1 val). Run prepare_ibd.py first.")
+        print("Tokenizer: need at least 2 data shards (1 train + 1 val). Run ibd/prepare_ibd.py first.")
         sys.exit(1)
 
     print("Tokenizer: training BPE tokenizer...")
@@ -633,24 +545,20 @@ def evaluate_bpb(model, tokenizer, batch_size):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    print("IBD Pathology Text — Data Preparation")
+    print("IBD Clinical Cases — Data Preparation")
     print("=" * 40)
     print(f"Output: {DATA_DIR}")
     print()
-    print("Licenses: CC BY 4.0 (both sources) — commercial and open-source use permitted.")
+    print("License: CC BY 4.0 — commercial and open-source use permitted.")
     print()
 
     RAW_DIR.mkdir(parents=True, exist_ok=True)
 
-    docs = []
-    docs.extend(fetch_tcga_reports())
-    docs.extend(fetch_multicare_ibd())
+    docs = fetch_multicare_ibd()
 
     if not docs:
         print("\nERROR: No documents collected. Check the download errors above.")
-        print("You may need to manually download the files:")
-        print(f"  TCGA-Reports: https://data.mendeley.com/datasets/{MENDELEY_DATASET_ID}/1")
-        print(f"  MultiCaRe:    https://zenodo.org/records/{ZENODO_RECORD_ID}")
+        print(f"  MultiCaRe: https://zenodo.org/records/{ZENODO_RECORD_ID}")
         sys.exit(1)
 
     build_shards(docs)
