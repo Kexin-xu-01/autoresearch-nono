@@ -1,24 +1,23 @@
 #!/usr/bin/env python3
 """
-prepare_ibd.py
+prepare_tcga.py
 
-Download and prepare IBD clinical case reports for autoresearch.
+Download and prepare TCGA surgical pathology reports for autoresearch.
 
 Data source (CC BY 4.0 — commercial and open-source use permitted):
-  MultiCaRe (Bitterman et al., 2023)
-  96,000+ PMC open-access clinical case reports, filtered for IBD keywords.
-  https://zenodo.org/records/10079370
+  TCGA-Reports (Kefeli et al., 2024)
+  9,523 surgical pathology reports; GI tract cases (COAD/READ) included.
+  https://data.mendeley.com/datasets/hyg5xkznpx/1
 
-Output: ~/.cache/autoresearch/ibd/data/ — train + val parquet shards
+Output: ~/.cache/autoresearch/tcga/data/ — train + val parquet shards
 
-Also trains the BPE tokenizer on the IBD corpus. No further setup needed.
+Also trains the BPE tokenizer on the TCGA corpus. No further setup needed.
 
 Usage:
-  uv run ibd/prepare_ibd.py
+  uv run tcga/prepare_tcga.py
 """
 
 import io
-import json
 import math
 import os
 import pickle
@@ -40,25 +39,12 @@ import torch
 # Config
 # ---------------------------------------------------------------------------
 
-CACHE_DIR = Path.home() / ".cache" / "autoresearch" / "ibd"
+CACHE_DIR = Path.home() / ".cache" / "autoresearch" / "tcga"
 DATA_DIR = CACHE_DIR / "data"
 RAW_DIR = CACHE_DIR / "raw"
 VAL_SHARD_IDX = 6542
-VAL_FRACTION = 0.10    # 10% held out for validation
-DOCS_PER_SHARD = 5000  # max documents per train shard
-
-IBD_KEYWORDS = [
-    "inflammatory bowel disease",
-    "crohn's disease", "crohn disease", "crohns disease",
-    "ulcerative colitis",
-    "indeterminate colitis",
-    " ibd ",
-    "ileocolitis",
-    "proctocolitis",
-    "pouchitis",
-    "ileitis",
-    "colitis",
-]
+VAL_FRACTION = 0.10
+DOCS_PER_SHARD = 5000
 
 # ---------------------------------------------------------------------------
 # Download helpers
@@ -96,184 +82,89 @@ def download_file(url, dest, desc=""):
 
 
 # ---------------------------------------------------------------------------
-# Source: MultiCaRe (Zenodo, CC BY 4.0) — IBD-filtered
+# Source: TCGA-Reports (Mendeley Data, CC BY 4.0)
 # ---------------------------------------------------------------------------
 
-ZENODO_RECORD_ID = "10079370"
-ZENODO_API = f"https://zenodo.org/api/records/{ZENODO_RECORD_ID}"
+MENDELEY_DATASET_ID = "hyg5xkznpx"
+TCGA_DIRECT_URL = (
+    "https://data.mendeley.com/public-files/datasets/hyg5xkznpx/files/"
+    "60abe141-9352-4a54-943c-3d015eabefea/file_downloaded"
+)
 
-# Text columns in MultiCaRe that contain clinical narrative
-MULTICARE_TEXT_COLS = [
-    "abstract", "background", "case_presentation", "case presentation",
-    "clinical presentation", "discussion", "conclusion", "text",
-    "body", "history", "findings", "report",
-]
-
-
-def fetch_multicare_ibd():
-    print("\n=== Source 2: MultiCaRe (Zenodo, CC BY 4.0) — IBD filter ===")
-    dest_dir = RAW_DIR / "multicare"
+def fetch_tcga_reports():
+    print("\n=== TCGA-Reports (Mendeley Data, CC BY 4.0) ===")
+    dest_dir = RAW_DIR / "tcga"
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    print("  Querying Zenodo API ...")
+    dest = dest_dir / "TCGA_Reports.csv.zip"
+    if dest.exists() and dest.stat().st_size < 10_000:
+        print(f"  Removing suspect cached file ({dest.stat().st_size} bytes) — may be an error response")
+        dest.unlink()
     try:
-        r = requests.get(ZENODO_API, timeout=30)
-        r.raise_for_status()
-        record = r.json()
+        download_file(TCGA_DIRECT_URL, dest, desc="TCGA_Reports.csv.zip")
     except Exception as e:
-        print(f"  ERROR: could not reach Zenodo API: {e}")
-        print(f"  Manual fallback: download from https://zenodo.org/records/{ZENODO_RECORD_ID}")
-        print(f"  and place files in {dest_dir}")
-        return _load_multicare_ibd_from_dir(dest_dir)
+        print(f"  WARNING: direct download failed: {e}")
+        print(f"  Manual fallback: download 'TCGA_Reports.csv.zip' from")
+        print(f"    https://data.mendeley.com/datasets/{MENDELEY_DATASET_ID}/1")
+        print(f"  and place it in {dest_dir}")
 
-    # Zenodo API v1 format: record["files"] list
-    # Zenodo API v2 format: record["entries"] list (newer deposits)
-    files = record.get("files") or record.get("entries", [])
-    print(f"  Found {len(files)} file(s) in Zenodo record {ZENODO_RECORD_ID}")
-
-    # Only download the clinical text files — skip images, PMC zips, metadata
-    MULTICARE_TEXT_FILES = {"cases.parquet", "abstracts.parquet"}
-
-    for f in files:
-        # Support both Zenodo v1 and v2 key naming
-        fname = f.get("filename") or f.get("key", "")
-        size_bytes = f.get("filesize") or f.get("size", 0)
-        size_mb = size_bytes / 1e6
-
-        if fname not in MULTICARE_TEXT_FILES:
-            print(f"  Skipping: {fname} ({size_mb:.0f} MB)")
-            continue
-
-        # Build download URL (v1: links.download, v2: links.content)
-        links = f.get("links", {})
-        url = (links.get("download")
-               or links.get("content")
-               or links.get("self")
-               or f.get("download_url", ""))
-        if not url:
-            print(f"  WARNING: no download URL for {fname}")
-            continue
-
-        print(f"  {fname}  ({size_mb:.0f} MB)")
-        download_file(url, dest_dir / fname, desc=fname)
-
-    return _load_multicare_ibd_from_dir(dest_dir)
+    return _load_tcga_from_dir(dest_dir)
 
 
-def _load_multicare_ibd_from_dir(directory):
-    """Load MultiCaRe files, combine text columns per case, filter for IBD."""
-    all_docs = []
-    paths = (list(directory.glob("*.csv")) + list(directory.glob("*.tsv"))
-             + list(directory.glob("*.zip")) + list(directory.glob("*.json"))
-             + list(directory.glob("*.parquet")))
-    if not paths:
-        print(f"  No data files found in {directory}. Skipping MultiCaRe.")
-        return []
-
-    for path in paths:
-        all_docs.extend(_parse_multicare_file(path))
-
-    ibd_docs = [d for d in all_docs if _is_ibd(d)]
-    print(f"  MultiCaRe total cases loaded: {len(all_docs)}")
-    print(f"  MultiCaRe IBD-relevant after filter: {len(ibd_docs)}")
-    return ibd_docs
-
-
-def _parse_multicare_file(path):
-    """Parse one MultiCaRe file → list of combined case-text strings."""
+def _load_tcga_from_dir(directory):
     docs = []
-    try:
-        if path.suffix == ".parquet":
-            import pyarrow.parquet as pq
-            df = pq.read_table(path).to_pandas()
-            # Handle MultiCaRe cases.parquet: "cases" column is array of dicts
-            if "cases" in df.columns:
-                for cases_arr in df["cases"]:
-                    if cases_arr is None:
-                        continue
-                    for case in cases_arr:
-                        if not isinstance(case, dict):
-                            continue
-                        text = case.get("case_text", "")
-                        if isinstance(text, str) and len(text) > 100:
-                            docs.append(text)
-            else:
-                # Generic parquet: find text columns
-                text_cols = [c for c in df.columns
-                             if any(kw in c.lower() for kw in MULTICARE_TEXT_COLS)]
-                if not text_cols:
-                    text_cols = df.select_dtypes(include="object").columns.tolist()
-                for _, row in df.iterrows():
-                    parts = []
-                    for c in text_cols:
-                        val = row[c]
-                        try:
-                            if val is not None and str(val).strip() not in ("nan", ""):
-                                parts.append(str(val).strip())
-                        except Exception:
-                            pass
-                    combined = "\n\n".join(parts)
-                    if len(combined) > 100:
-                        docs.append(combined)
-        elif path.suffix == ".zip":
-            with zipfile.ZipFile(path) as zf:
-                for name in zf.namelist():
-                    if name.endswith((".csv", ".tsv", ".json")):
-                        with zf.open(name) as fh:
-                            docs.extend(_parse_multicare_buffer(fh, name))
-        elif path.suffix == ".json":
-            with open(path, "r", encoding="utf-8") as fh:
-                data = json.load(fh)
-            if isinstance(data, list):
-                for item in data:
-                    text = _combine_case_fields(item)
-                    if len(text) > 100:
-                        docs.append(text)
-        else:
-            with open(path, "rb") as fh:
-                docs.extend(_parse_multicare_buffer(fh, str(path)))
-    except Exception as e:
-        print(f"  WARNING: failed to parse {path.name}: {e}")
+    paths = (list(directory.glob("*.csv")) + list(directory.glob("*.tsv"))
+             + list(directory.glob("*.zip")) + list(directory.glob("*.parquet")))
+    if not paths:
+        print(f"  No data files found in {directory}. Skipping TCGA-Reports.")
+        return docs
+    for path in paths:
+        docs.extend(_read_tabular_file(path))
+    print(f"  TCGA-Reports: {len(docs)} documents loaded")
     return docs
 
 
-def _parse_multicare_buffer(fh, name):
-    """Read a CSV/TSV buffer, merge relevant text columns per row."""
+def _read_tabular_file(path):
+    docs = []
     try:
-        sep = "\t" if str(name).endswith(".tsv") else ","
-        df = pd.read_csv(fh, sep=sep, low_memory=False)
-        # Find text-rich columns
-        text_cols = [c for c in df.columns
-                     if any(kw in c.lower() for kw in MULTICARE_TEXT_COLS)]
-        if not text_cols:
-            text_cols = df.select_dtypes(include="object").columns.tolist()
-        docs = []
-        for _, row in df.iterrows():
-            parts = [str(row[c]).strip() for c in text_cols
-                     if pd.notna(row[c]) and str(row[c]).strip() not in ("nan", "")]
-            combined = "\n\n".join(parts)
-            if len(combined) > 100:
-                docs.append(combined)
-        return docs
+        if path.suffix == ".parquet":
+            df = pq.read_table(path).to_pandas()
+            docs.extend(_df_to_texts(df))
+        elif path.suffix == ".zip":
+            with zipfile.ZipFile(path) as zf:
+                for name in zf.namelist():
+                    if name.endswith((".csv", ".tsv")):
+                        with zf.open(name) as fh:
+                            df = _read_df(fh, name)
+                            docs.extend(_df_to_texts(df))
+        else:
+            df = _read_df(path, str(path))
+            docs.extend(_df_to_texts(df))
     except Exception as e:
-        print(f"  WARNING: parse error in {name}: {e}")
-        return []
+        print(f"  WARNING: could not read {path.name}: {e}")
+    return docs
 
 
-def _combine_case_fields(item):
-    """Merge relevant fields from a JSON case dict into one string."""
-    parts = []
-    for key in ["abstract", "background", "case_presentation", "discussion",
-                "conclusion", "text", "body", "clinical_presentation"]:
-        val = item.get(key, "")
-        if val and isinstance(val, str) and len(val.strip()) > 20:
-            parts.append(val.strip())
-    return "\n\n".join(parts)
+def _read_df(path_or_fh, name):
+    sep = "\t" if str(name).endswith(".tsv") else ","
+    return pd.read_csv(path_or_fh, sep=sep, low_memory=False)
 
 
-def _is_ibd(text):
-    t = text.lower()
-    return any(kw in t for kw in IBD_KEYWORDS)
+def _df_to_texts(df):
+    candidates = [
+        "report_text", "text", "path_report", "pathology_report",
+        "report", "narrative", "diagnosis", "findings", "abstract",
+        "case_text", "clinical_text",
+    ]
+    col = next((c for c in candidates if c in df.columns), None)
+    if col is None:
+        str_cols = df.select_dtypes(include="object").columns.tolist()
+        if not str_cols:
+            return []
+        col = max(str_cols, key=lambda c: df[c].dropna().str.len().mean())
+        print(f"  Auto-selected column '{col}'")
+    texts = df[col].dropna().astype(str).str.strip().tolist()
+    return [t for t in texts if len(t) > 80]
 
 
 # ---------------------------------------------------------------------------
@@ -300,10 +191,8 @@ def build_shards(docs):
         kb = path.stat().st_size / 1024
         print(f"  Wrote {path.name}  ({len(shard_docs)} docs, {kb:.0f} KB)")
 
-    # Pinned val shard
     write_shard(val_docs, VAL_SHARD_IDX)
 
-    # Train shards (chunked)
     shard_idx = 0
     for i in range(0, len(train_docs), DOCS_PER_SHARD):
         write_shard(train_docs[i:i + DOCS_PER_SHARD], shard_idx)
@@ -319,7 +208,7 @@ TIME_BUDGET = 300
 EVAL_TOKENS = 40 * 524288
 
 TOKENIZER_DIR = str(CACHE_DIR / "tokenizer")
-VAL_SHARD = VAL_SHARD_IDX  # 6542
+VAL_SHARD = VAL_SHARD_IDX
 VAL_FILENAME = f"shard_{VAL_SHARD:05d}.parquet"
 VOCAB_SIZE = 8192
 
@@ -360,7 +249,7 @@ def train_tokenizer():
 
     parquet_files = list_parquet_files()
     if len(parquet_files) < 2:
-        print("Tokenizer: need at least 2 data shards (1 train + 1 val). Run ibd/prepare_ibd.py first.")
+        print("Tokenizer: need at least 2 data shards (1 train + 1 val). Run prepare_tcga.py first.")
         sys.exit(1)
 
     print("Tokenizer: training BPE tokenizer...")
@@ -452,7 +341,7 @@ def get_token_bytes(device="cpu"):
 
 def _document_batches(split, tokenizer_batch_size=128):
     parquet_paths = list_parquet_files()
-    assert len(parquet_paths) > 0, "No parquet files found. Run prepare_ibd.py first."
+    assert len(parquet_paths) > 0, "No parquet files found. Run prepare_tcga.py first."
     val_path = os.path.join(DATA_DIR, VAL_FILENAME)
     if split == "train":
         parquet_paths = [p for p in parquet_paths if p != val_path]
@@ -545,7 +434,7 @@ def evaluate_bpb(model, tokenizer, batch_size):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    print("IBD Clinical Cases — Data Preparation")
+    print("TCGA Pathology Reports — Data Preparation")
     print("=" * 40)
     print(f"Output: {DATA_DIR}")
     print()
@@ -554,11 +443,12 @@ if __name__ == "__main__":
 
     RAW_DIR.mkdir(parents=True, exist_ok=True)
 
-    docs = fetch_multicare_ibd()
+    docs = fetch_tcga_reports()
 
     if not docs:
         print("\nERROR: No documents collected. Check the download errors above.")
-        print(f"  MultiCaRe: https://zenodo.org/records/{ZENODO_RECORD_ID}")
+        print(f"  Manual download: https://data.mendeley.com/datasets/{MENDELEY_DATASET_ID}/1")
+        print(f"  Place 'TCGA_Reports.csv.zip' in {RAW_DIR / 'tcga'}")
         sys.exit(1)
 
     build_shards(docs)
@@ -567,4 +457,4 @@ if __name__ == "__main__":
     train_tokenizer()
 
     print()
-    print("Done! Data and tokenizer are ready. Run ./launch.sh to start the agent.")
+    print("Done! Data and tokenizer are ready.")

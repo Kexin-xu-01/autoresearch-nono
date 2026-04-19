@@ -112,8 +112,11 @@ workload/
   pyproject.toml         Python dependencies
   .claude/               Claude Code settings for the sandboxed session
   ibd/
-    prepare_ibd.py       IBD data prep + tokenizer training (TCGA + MultiCaRe)
+    prepare_ibd.py       IBD data prep + tokenizer training (MultiCaRe IBD cases)
     program_ibd.md       agent instructions (IBD)
+  tcga/
+    prepare_tcga.py      TCGA data prep + tokenizer training (GI cancer pathology reports)
+    program_tcga.md      agent instructions (TCGA)
   climbmix/
     prepare.py           generic data prep (climbmix web text)
     program.md           agent instructions (generic, climbmix)
