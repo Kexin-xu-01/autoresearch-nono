@@ -26,9 +26,9 @@ To set up a new experiment, work with the user to:
 
 1. **Agree on a run tag**: propose a tag based on today's date (e.g. `apr11`). The branch `autoresearch-nono/<tag>` must not already exist in the `autoresearch-nono` repo — this is a fresh run.
 2. **Create the branch**: from the repo root (`autoresearch-nono/`), run `git checkout -b autoresearch-nono/<tag>` from `main`, then `git push -u origin autoresearch-nono/<tag>`. All experiment commits go into `Kexin-xu-01/autoresearch-nono`.
-3. **Update the import in train.py**: change the `sys.path.insert` line to point to `tcga/` instead of `ibd/`:
+3. **Set the corpus in train.py**: change the `CORPUS` variable to `"tcga"`:
    ```python
-   sys.path.insert(0, os.path.join(os.path.dirname(__file__), "tcga"))
+   CORPUS = "tcga"
    ```
 4. **Read the in-scope files**: Read these files for full context:
    - `tcga/prepare_tcga.py` — fixed constants, data prep, tokenizer, dataloader, evaluation. Do not modify.
