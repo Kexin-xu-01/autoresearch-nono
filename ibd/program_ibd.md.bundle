@@ -12,7 +12,7 @@
     "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJzdWJqZWN0IjpbeyJuYW1lIjoicHJvZ3JhbV9pYmQubWQiLCJkaWdlc3QiOnsic2hhMjU2IjoiNTFjNzA2Y2VkMTVlMjU0MzdjOGJiZDE5MTFlY2RjYWM1YjhhMzQ3ZDBhNTdiNDE0MDgwN2QwNTZmYzNlN2E1MCJ9fV0sInByZWRpY2F0ZVR5cGUiOiJodHRwczovL25vbm8uc2gvYXR0ZXN0YXRpb24vaW5zdHJ1Y3Rpb24tZmlsZS92MSIsInByZWRpY2F0ZSI6eyJ2ZXJzaW9uIjoxLCJzaWduZXIiOnsia2luZCI6ImtleWVkIiwia2V5X2lkIjoiZmlsZTovLy9ob21lL2tleGlueHUvLmNvbmZpZy9ub25vL3RydXN0LWtleS5wZW0ifX19",
     "signatures": [
       {
-        "sig": "MEQCIDFM4GbfMc4HFgHCoJaVDq1fesN+O9GeoXCnXsxjSwO0AiB0s+uy4atUs9VAzOO4//sTrf60UpQOH+8BnZ39c1UezQ=="
+        "sig": "MEYCIQCeqPhcWdj9NSzfk9Y+S2ETFhoBzeL2qPDPN1/+2yaYYAIhANG+KNaHPriFRR7i+XnBCEZa+OcZslmCvWUaV2ZP5ZpS"
       }
     ]
   }
