@@ -1,10 +1,10 @@
-# Running an AI agent overnight on your PhD data
+# Running an AI agent overnight on medical text
 
-Last month I set up Andrej Karpathy's autoresearch to run overnight on IBD pathology text. The premise is straightforward: give an AI agent a training script, a fixed time budget, and a goal metric, then let it experiment while you sleep. By morning you have a run of experiments charted, the agent having tried architectural changes, learning rate schedules, and batch size sweeps that would take much longer to work through manually.
+Last month I set up Andrej Karpathy's autoresearch to run overnight on medical pathology text. The premise is straightforward: give an AI agent a training script, a fixed time budget, and a goal metric, then let it experiment while you sleep. By morning you have a run of experiments charted, the agent having tried architectural changes, learning rate schedules, and batch size sweeps that would take much longer to work through manually.
 
-I am a third-year PhD student in Computational Biology at the University of Oxford, working on applying AI to inflammatory bowel disease. One thread of that work is training a language model on IBD clinical reports — with the goal of building a model that understands IBD pathology language well enough to assist with reading and eventually generating reports. That motivated my use of the [MultiCaRe dataset](https://zenodo.org/records/10079370): 96,000+ open-access PMC case reports filtered for IBD keywords. I also included TCGA cancer pathology reports as a second corpus to demonstrate the setup generalises beyond IBD. Domain-specific pretraining requires substantial iteration over interdependent choices — vocabulary size, context window, model depth — and autoresearch makes that iteration feasible to run unattended.
+I have been interested in training language models on medical text as a hobby — specifically building models that understand the language of clinical reports well enough to assist with reading them. To demonstrate the setup, I used two publicly available corpora: IBD clinical case reports from the [MultiCaRe dataset](https://zenodo.org/records/10079370) (96,000+ open-access PMC case reports), and TCGA cancer pathology reports. Domain-specific pretraining requires substantial iteration over interdependent choices — vocabulary size, context window, model depth — and autoresearch makes that iteration feasible to run unattended.
 
-However, running an AI agent autonomously overnight on a research machine raises a security concern that I wanted to address before relying on it.
+However, running an AI agent autonomously overnight on a personal machine raises a security concern that I wanted to address before relying on it.
 
 ---
 

@@ -1,8 +1,8 @@
-# Running an AI agent overnight on your PhD data
+# Running an AI agent overnight on medical text
 
-Last month I set up Andrej Karpathy's autoresearch to run overnight on IBD pathology text. The idea: give an AI agent a training script, a fixed time budget, and a metric to optimise, then let it experiment while you sleep. By morning, you have dozens of experiments charted — architectural changes, learning rate schedules, batch size sweeps — that would take weeks to work through manually.
+Last month I set up Andrej Karpathy's autoresearch to run overnight on medical pathology text. The idea: give an AI agent a training script, a fixed time budget, and a metric to optimise, then let it experiment while you sleep. By morning, you have dozens of experiments charted — architectural changes, learning rate schedules, batch size sweeps — that would take weeks to work through manually.
 
-I am a third-year PhD student in Computational Biology at Oxford, working on applying AI to inflammatory bowel disease. One thread of my work is training a language model on IBD clinical reports — with the goal of building something that understands IBD pathology language well enough to assist with reading and eventually generating reports. Autoresearch is a natural fit for the iteration that kind of pretraining requires.
+I have been interested in training language models on medical text as a hobby — building models that understand the language of clinical reports well enough to assist with reading them. To demonstrate the setup, I used two publicly available corpora: IBD clinical case reports from the [MultiCaRe dataset](https://zenodo.org/records/10079370), and TCGA cancer pathology reports. Autoresearch is a natural fit for the iteration that kind of pretraining requires.
 
 But before I let it run unattended overnight, I needed to think about what I was actually leaving running on my machine.
 
