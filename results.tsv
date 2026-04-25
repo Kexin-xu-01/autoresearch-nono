@@ -1,0 +1,3 @@
+commit	val_bpb	memory_gb	status	description
+988800c	1.086154	33.7	keep	baseline DEPTH=10
+b56c0f6	1.241980	22.3	discard	DEPTH=8
