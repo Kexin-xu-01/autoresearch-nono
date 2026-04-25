@@ -1,3 +1,14 @@
 commit	val_bpb	memory_gb	status	description
 988800c	1.086154	33.7	keep	baseline DEPTH=10
 b56c0f6	1.241980	22.3	discard	DEPTH=8
+622a228	1.124562	30.7	keep	apr25b baseline (DEPTH=9 dim=640)
+97f19b7	1.428991	13.4	discard	DEPTH=6 (too small - worse generalization)
+f338b42	1.085676	33.7	keep	DEPTH=10 dim=640
+82e9fd3	0.000000	0.0	crash	DEPTH=11 dim=768 OOM (40GB GPU)
+8d5dca6	1.060336	37.0	keep	DEPTH=11 ASPECT_RATIO=56 dim=640
+5bf1ff1	1.057442	37.0	keep	WARMDOWN_RATIO=0.3
+f27b8cc	1.002180	20.6	keep	DEPTH=12 AR=53 BS=32 TBS=2^18 (2x more steps)
+0445eb5	0.967872	28.6	keep	DEPTH=14 AR=53 dim=768 155M params
+14bbcb3	0.942412	36.4	keep	DEPTH=18 AR=40 dim=768 196M params
+457b92d	0.907321	21.4	keep	DEPTH=20 AR=38 BS=16 dim=768 217M
+5a6efce	0.879967	29.7	keep	DEPTH=28 AR=27 dim=768 299M
