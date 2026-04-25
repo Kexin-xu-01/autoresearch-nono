@@ -2,7 +2,7 @@
 
 Last month I set up Andrej Karpathy's autoresearch to run overnight on medical pathology text. The idea: give an AI agent a training script, a fixed time budget, and a metric to optimise, then let it experiment while you sleep. By morning, you have dozens of experiments charted — architectural changes, learning rate schedules, batch size sweeps — that would take weeks to work through manually.
 
-I have been interested in training language models on medical text as a hobby — building models that understand the language of clinical reports well enough to assist with reading them. To demonstrate the setup, I used two publicly available corpora: IBD clinical case reports from the [MultiCaRe dataset](https://zenodo.org/records/10079370), and TCGA cancer pathology reports. Autoresearch is a natural fit for the iteration that kind of pretraining requires.
+I am a third-year PhD student in Computational Biology, working on applying AI to inflammatory bowel disease. Alongside that, I am interested in multi-agent AI for scientific research — which led me to join Always Further as an AI Researcher in February 2026. Autoresearch is a concrete example of that: an AI agent running autonomously on a scientific workload. To demonstrate the setup, I used two publicly available medical corpora: IBD clinical case reports from the [MultiCaRe dataset](https://zenodo.org/records/10079370), and TCGA cancer pathology reports.
 
 But before I let it run unattended overnight, I needed to think about what I was actually leaving running on my machine.
 
