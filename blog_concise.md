@@ -64,4 +64,10 @@ The agent does not know it is sandboxed. Nothing in the training setup needs to 
 
 ---
 
+## Example Results on IBD data
+
+![Autoresearch results on IBD data](output.png)
+
+---
+
 *Repo: [github.com/Kexin-xu-01/autoresearch-nono](https://github.com/Kexin-xu-01/autoresearch-nono)*
