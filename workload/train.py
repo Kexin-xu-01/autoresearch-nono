@@ -96,6 +96,12 @@ class CausalSelfAttention(nn.Module):
         q, k = apply_rotary_emb(q, cos, sin), apply_rotary_emb(k, cos, sin)
         q, k = norm(q), norm(k)
 
+        # GQA: expand KV heads to match query heads for Flash Attention
+        if self.n_kv_head < self.n_head:
+            repeat = self.n_head // self.n_kv_head
+            k = k.repeat_interleave(repeat, dim=2)
+            v = v.repeat_interleave(repeat, dim=2)
+
         with sdpa_kernel([SDPBackend.FLASH_ATTENTION]):
             y = F.scaled_dot_product_attention(q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), is_causal=True)
         y = y.transpose(1, 2).contiguous().view(B, T, -1)
