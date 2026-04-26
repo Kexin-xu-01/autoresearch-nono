@@ -68,6 +68,8 @@ The agent does not know it is sandboxed. Nothing in the training setup needs to 
 
 ![Autoresearch results on IBD data](output.png)
 
+The chart shows 34 experiments run overnight on IBD clinical case reports. The y-axis is validation bits per byte (BPB) — a measure of how well the model compresses the text, where lower is better. Starting from a baseline of 1.09 BPB, the agent explored architectural changes including depth scaling, attention head configuration, SwiGLU activations, and grouped-query attention (GQA). 18 of the 34 experiments were kept as improvements, with the rest reverted. By morning, BPB had dropped to 0.76 — a roughly 30% reduction — without any manual intervention.
+
 ---
 
 *Repo: [github.com/Kexin-xu-01/autoresearch-nono](https://github.com/Kexin-xu-01/autoresearch-nono)*

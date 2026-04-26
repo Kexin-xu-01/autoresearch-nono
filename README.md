@@ -120,6 +120,16 @@ nono audit show <session-id> --json
 
 ---
 
+## Example results
+
+After running overnight on IBD clinical case reports (MultiCaRe dataset), the agent ran 34 experiments and kept 18 improvements, reducing validation BPB from 1.09 to 0.76 — roughly a 30% reduction:
+
+![Autoresearch results on IBD data](output.png)
+
+Key changes the agent discovered: depth scaling, SwiGLU activations, grouped-query attention (GQA), and removal of value embeddings. Green dots are kept experiments; grey dots were tried and reverted; the step line tracks the running best.
+
+---
+
 ## Files
 
 ```
