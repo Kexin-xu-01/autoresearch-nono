@@ -455,6 +455,7 @@ FINAL_LR_FRAC = 0.0     # final LR as fraction of initial
 
 # Model size
 DEPTH = 32             # number of transformer layers
+N_KV_HEADS = 2         # GQA: KV heads (must divide n_head=6 evenly; 2 → 3 queries per KV)
 DEVICE_BATCH_SIZE = 16   # per-device batch size (reduce if OOM)
 
 # ---------------------------------------------------------------------------
@@ -479,7 +480,7 @@ def build_model_config(depth):
     num_heads = model_dim // HEAD_DIM
     return GPTConfig(
         sequence_len=MAX_SEQ_LEN, vocab_size=vocab_size,
-        n_layer=depth, n_head=num_heads, n_kv_head=num_heads, n_embd=model_dim,
+        n_layer=depth, n_head=num_heads, n_kv_head=N_KV_HEADS, n_embd=model_dim,
         window_pattern=WINDOW_PATTERN,
     )
 
