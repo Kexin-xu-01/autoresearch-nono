@@ -136,9 +136,7 @@ Key changes the agent discovered: depth scaling, SwiGLU activations, grouped-que
 workload/
   train.py               GPT model + training loop (the file the agent modifies)
   analysis.ipynb         experiment analysis and BPB progress chart
-  results.tsv            experiment log (commit, val_bpb, memory_gb, status, description)
-  run.log                full agent session log
-  trust-policy.json      attestation policy (workload-level)
+  trust-policy.json      attestation policy
   pyproject.toml         Python dependencies
   uv.lock                dependency lock file
   .python-version        pinned Python version
@@ -147,6 +145,7 @@ workload/
     prepare_ibd.py       IBD data prep + tokenizer training (MultiCaRe IBD cases)
     corpus.py            IBD corpus loader
     program_ibd.md       agent instructions (IBD)
+    program_ibd.md.bundle  signed attestation bundle (generated on first run)
   tcga/
     prepare_tcga.py      TCGA data prep + tokenizer training (multi-organ cancer pathology reports)
     corpus.py            TCGA corpus loader
@@ -157,11 +156,8 @@ workload/
     program.md           agent instructions (generic, climbmix)
 profiles/
   claude-code-autoresearch.json  nono profile for Linux/CUDA + GPU
-trust/
-  .gitkeep               attestation bundles are generated locally, not committed
-audit-examples/
-  .gitkeep               add session excerpts here after runs
-trust-policy.json        root-level attestation policy
+trust/                   attestation bundles live here locally (not committed)
+audit-examples/          add session excerpts here after runs
 output.png               example results chart (IBD overnight run)
 blog_concise.md          blog post write-up
 launch.sh                sandbox launcher with attestation enforcement
