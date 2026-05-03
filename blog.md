@@ -24,13 +24,13 @@ The key property for this use case is child process inheritance: restrictions ap
 
 I started with `nono learn`, which watches a real run and automatically figures out what files and network access the process actually needs. That gave a good starting point, but getting GPU training to work required a fair amount of trial and error — the GPU software stack touches a lot of places that are not obvious until something breaks.
 
-| Without nono | With nono |
-|---|---|
-| Agent can read my cloud credentials and SSH keys | Blocked |
-| Agent can write to any file on the machine | Write access limited to the project folder |
-| Training job has full internet access | Network limited to the AI API and HuggingFace |
-| No record of what the agent actually did | Full log of every file and network access |
-| Instruction file can be quietly changed | Verified before every run |
+| Without nono | With nono | How |
+|---|---|---|
+| Agent can read my cloud credentials and SSH keys | Blocked | `~/.aws`, `~/.ssh` absent from `allow` list; Landlock blocks at syscall level, not application level |
+| Agent can write to any file on the machine | Write access limited to the project folder | `allow` covers repo dir + ML cache dirs only (`~/.cache/torch`, `~/.cache/huggingface`, `~/.nv`, etc.) |
+| Training job has full internet access | Network limited to the AI API and HuggingFace | Network policy is inherited by child processes — the training subprocess gets no separate allowance |
+| No record of what the agent actually did | Full log of every file and network access | nono audit log captures every syscall — reads, writes, network calls, and denials |
+| Instruction file can be quietly changed | Verified before every run | `program.md` is DSSE-signed with a local key; `launch.sh` verifies the bundle before starting the agent |
 
 ---
 
