@@ -39,7 +39,9 @@ The `claude-code-autoresearch` profile extends nono's base `claude-code` profile
 - `~/.cache/torch`, `~/.cache/huggingface` — framework caches
 - `~/.cache/uv`, `~/.local/share/uv` — package manager cache
 - `~/.nv`, `~/.triton/cache` — GPU compilation caches
-- `/tmp`, `/dev/shm`, `/proc` — runtime requirements
+- `/tmp`, `/dev/shm` — runtime scratch space (read/write)
+
+Read-only access is granted to the specific `/proc` paths CUDA and PyTorch require: `/proc/driver/nvidia`, `/proc/meminfo`, `/proc/cpuinfo`, `/proc/self`, `/proc/version`, and `/proc/sys/vm/overcommit_memory`. Broad `/proc` access — which would expose writable kernel parameters via `/proc/sys` — is not granted.
 
 Credential paths (`~/.aws`, `~/.ssh`) are absent from the allow list and are therefore blocked. Network access is restricted to the LLM API and HuggingFace. Both constraints are inherited by the training subprocess.
 
