@@ -1,32 +1,36 @@
 # Running an AI agent overnight on medical text
 
-Last month I set up Andrej Karpathy's autoresearch to run overnight on medical pathology text. The premise is straightforward: give an AI agent a training script, a fixed time budget, and a goal metric, then let it experiment while you sleep. By morning you have a run of experiments charted, the agent having tried architectural changes, learning rate schedules, and batch size sweeps that would take much longer to work through manually.
+Last month I set up Andrej Karpathy's autoresearch to run overnight on medical pathology text. The idea: give an AI agent a training script, a fixed time budget, and a metric to optimise, then let it experiment while you sleep. By morning, you have dozens of experiments charted — architectural changes, learning rate schedules, batch size sweeps — that would take weeks to work through manually.
 
-I am a third-year PhD student in Computational Biology, working on applying AI to inflammatory bowel disease (IBD). Alongside that, I have been interested in multi-agent AI for scientific research — which led me to join Always Further as an AI Researcher in February 2026. Autoresearch is a natural fit for that interest: it is a concrete example of an AI agent running autonomously on a scientific workload. To demonstrate the setup, I used two publicly available medical corpora: IBD clinical case reports from the [MultiCaRe dataset](https://zenodo.org/records/10079370) (96,000+ open-access PMC case reports), and surgical pathology reports from [TCGA](https://data.mendeley.com/datasets/hyg5xkznpx/1) (The Cancer Genome Atlas), covering multiple cancer types.
+I am a third-year PhD student in Computational Biology, working on applying AI to inflammatory bowel disease (IBD). Alongside that, I am interested in multi-agent AI for scientific research — which led me to join Always Further as an AI Researcher in February 2026. Autoresearch is a concrete example of that: an AI agent running autonomously on a scientific workload. To demonstrate the setup, I used two publicly available medical corpora: IBD clinical case reports from the [MultiCaRe dataset](https://zenodo.org/records/10079370), and surgical pathology reports from [TCGA](https://data.mendeley.com/datasets/hyg5xkznpx/1) (The Cancer Genome Atlas). Medical text differs substantially from the general text most AI models are trained on — clinical reports are dense with abbreviations, disease-specific terminology, and structured formats that general web text does not adequately cover, making training on domain-specific text worthwhile.
 
-Medical text is a different beast from the natural text that most LLMs are trained on. Clinical reports are dense with abbreviations, disease-specific terminology, and rigid structured formats that carry meaning a general model is unlikely to have encountered at sufficient depth. A model that reads "transmural inflammation with skip lesions" needs to have seen enough IBD pathology language to know what that pattern implies — general web text does not provide that. Domain-specific pretraining on corpora like these is one way to close that gap, and it requires substantial iteration over interdependent choices — vocabulary size, context window, model depth — which is where autoresearch comes in.
-
-However, running an AI agent autonomously overnight on a personal machine raises a security concern that I wanted to address before relying on it.
+But before I let it run unattended overnight, I needed to think about what I was actually leaving running on my machine.
 
 ---
 
-## The security problem
+## The problem
 
-Autoresearch's security model is behavioural: the agent stays on task because it has been instructed to. For interactive use this is a reasonable assumption, but for an unattended overnight run it is the only control in place. The relevant risk is not limited to the agent process itself.
+Autoresearch gives the AI agent full access to write code, run it, and repeat — in a loop, all night. The agent modifies `train.py`, kicks off a training job that runs for five minutes, checks if the results improved, and either keeps the change or reverts it.
 
-During a session, autoresearch: reads `ibd/program_ibd.md` (the instruction file); calls the LLM API; writes changes directly to `train.py`; spawns a GPU training subprocess that runs for five minutes; then reads the log output, evaluates the metric, and commits or resets. The agent therefore has unrestricted write access to the codebase, and the training subprocess it spawns runs arbitrary Python with full network access — on a machine that holds `~/.aws` credentials for the GPU instance and `~/.ssh` keys for the cluster.
-
-If the agent behaves unexpectedly — through a model quirk, an adversarial prompt, or content in the training data — there is no structural barrier preventing it from accessing credential paths or making network calls that would be indistinguishable from legitimate traffic. More critically, application-level filtering only covers the agent process itself; the training subprocess it spawns is outside that perimeter entirely.
+The part that gave me pause: the training job it launches runs with full internet access, on a machine that also has my cloud credentials and SSH keys sitting on it. The agent will behave because it has been told to — but that is the only guarantee. If something goes wrong, there is nothing technically stopping it from accessing files it should not, or making network calls that look like normal traffic. More critically, any application-level controls only cover the agent process itself; the training subprocess it spawns runs entirely outside that perimeter.
 
 ---
 
 ## Why nono
 
-[nono](https://github.com/lukehinds/nono) is a sandbox for AI agents built on Linux Landlock (kernel 5.13+) and macOS Seatbelt, enforcing filesystem and network restrictions at the syscall level. The key property for this use case is child process inheritance: restrictions applied to the agent cascade automatically to every process it spawns. The training subprocess therefore operates under the same constraints as the agent, with no additional configuration required.
+[nono](https://github.com/lukehinds/nono) is a tool that puts hard limits on what an AI agent is allowed to do at the operating system level — not just by telling it what not to do, but by making those actions technically impossible. It is built on Linux Landlock (kernel 5.13+) and macOS Seatbelt, enforcing restrictions at the syscall level.
 
-Most application-level sandboxes do not have this property — they constrain the agent but leave spawned subprocesses uncovered. nono's kernel-level enforcement closes that gap.
+The key property for this use case is child process inheritance: restrictions applied to the agent cascade automatically to every process it spawns. So when autoresearch kicks off a training job, that job runs under the same constraints as the agent itself — with no additional configuration. Most application-level sandboxes do not have this property. nono's kernel-level enforcement closes that gap.
 
-Building the profile started with `nono learn`, which observes a real process and generates a policy from its actual footprint. That gave a reasonable base, but GPU access required trial and error — CUDA, Triton, and the NVIDIA driver touch paths that are not obvious until something breaks.
+I started with `nono learn`, which watches a real run and automatically figures out what files and network access the process actually needs. That gave a good starting point, but getting GPU training to work required a fair amount of trial and error — the GPU software stack touches a lot of places that are not obvious until something breaks.
+
+| Without nono | With nono |
+|---|---|
+| Agent can read my cloud credentials and SSH keys | Blocked |
+| Agent can write to any file on the machine | Write access limited to the project folder |
+| Training job has full internet access | Network limited to the AI API and HuggingFace |
+| No record of what the agent actually did | Full log of every file and network access |
+| Instruction file can be quietly changed | Verified before every run |
 
 ---
 
@@ -39,43 +43,29 @@ The `claude-code-autoresearch` profile extends nono's base `claude-code` profile
 - `~/.cache/torch`, `~/.cache/huggingface` — framework caches
 - `~/.cache/uv`, `~/.local/share/uv` — package manager cache
 - `~/.nv`, `~/.triton/cache` — GPU compilation caches
-- `/tmp`, `/dev/shm` — runtime scratch space (read/write)
+- `/tmp`, `/dev/shm` — runtime scratch space
 
 Read-only access is granted to the specific `/proc` paths CUDA and PyTorch require: `/proc/driver/nvidia`, `/proc/meminfo`, `/proc/cpuinfo`, `/proc/self`, `/proc/version`, and `/proc/sys/vm/overcommit_memory`. Broad `/proc` access — which would expose writable kernel parameters via `/proc/sys` — is not granted.
 
 Credential paths (`~/.aws`, `~/.ssh`) are absent from the allow list and are therefore blocked. Network access is restricted to the LLM API and HuggingFace. Both constraints are inherited by the training subprocess.
 
-| Without nono | With nono |
-|---|---|
-| Agent can read `~/.aws`, `~/.ssh` | Blocked at kernel level |
-| Agent can write to any file | Write access limited to repo + cache dirs |
-| Training subprocess has full network access | Network restricted to LLM API + HuggingFace |
-| No record of what the agent actually accessed | Structured audit log of every operation |
-| `program_ibd.md` can be silently modified | Tamper detection via Sigstore attestation |
-
 ---
 
-## Audit log
+## Two features worth highlighting
 
-Beyond the security properties, the nono audit log provides observability that git alone does not. git records what the agent committed; nono records what it actually accessed — every filesystem read and write, every network call, and every denied operation. These are different records: an agent that reads `~/.ssh` and does nothing with it leaves no git trace, but it appears in the nono audit.
+**Audit log.** There is a difference between what the agent committed to git and what it actually did. git only records what was saved. nono records everything — every file it opened, every network call it made, every access that was blocked. An agent that reads `~/.ssh` and does nothing with it leaves no git trace, but it appears in the nono audit.
 
 ```bash
 # git's view — what was committed
-git -C workload log --oneline autoresearch-nono/apr25b
+git -C workload log --oneline
 
 # nono's view — what was actually touched
 nono audit show <session-id> --json | jq '.denials'
 ```
 
-For a research context this is independently useful: it allows me to confirm which data shards were accessed during evaluation, verify that the training subprocess is only reaching expected network endpoints, and identify unexpected behaviour in the CUDA compilation layer.
+For a research context this is independently useful: it lets me confirm which data shards were accessed during evaluation, verify that the training subprocess is only reaching expected network endpoints, and identify unexpected behaviour in the CUDA compilation layer.
 
----
-
-## Attestation
-
-Each corpus has its own instruction file: `ibd/program_ibd.md` for IBD, `tcga/program_tcga.md` for cancer pathology reports, and `climbmix/program.md` for general web text. These files specify the research question, the goal metric, what the agent may and may not modify, and how to log results.
-
-If `program_ibd.md` is modified between runs — through a stale git state, a merge error, or anything else — the agent executes under a different mandate without any visible indication until the results are examined. nono's attestation layer addresses this using DSSE signed payloads with local key management. The program file is signed before the first run, and the launch script verifies the signature before starting the agent. If verification fails, the run aborts:
+**Instruction verification.** Each corpus has an instruction file that tells the agent what experiment to run — the research question, the goal metric, what it may and may not modify. If that file gets accidentally changed between runs, the agent will run a different experiment than intended, with no warning. nono signs the instruction file before the first run using DSSE signed payloads with local key management, and verifies the signature at launch. If anything has changed, it refuses to start:
 
 ```
 [nono] Checking attestation...
@@ -84,9 +74,9 @@ If `program_ibd.md` is modified between runs — through a stale git state, a me
 
 ---
 
-## Launch wrapper
+## Getting started
 
-`launch.sh` locates the signed attestation bundle for the chosen corpus, verifies it, then launches Claude Code under enforcement:
+One command starts the agent under enforcement:
 
 ```bash
 exec nono run \
@@ -99,12 +89,16 @@ exec nono run \
 
 `--dangerously-skip-permissions` is intentional. Autoresearch requires the agent to operate without interactive confirmation — that is the design. Claude Code's permission prompts and nono's kernel enforcement address different problems; for an unattended overnight run, the latter is the appropriate control.
 
----
-
-## Getting started
-
-The profile will be available via the nono profile registry. In the meantime it is in the `profiles/` directory of [autoresearch-nono](https://github.com/Kexin-xu-01/autoresearch-nono), along with three workloads (IBD, TCGA, climbmix), data preparation scripts, and the launch wrapper. The design intention was for nono to be a drop-in addition: the agent is unaware of the sandbox, and nothing in the training pipeline requires modification.
+The agent does not know it is sandboxed. Nothing in the training setup needs to change. The profile is available via the nono registry (`nono pull Kexin-xu-01/claude-autoresearch`), along with ready-to-use workloads for IBD, TCGA, and general web text at [autoresearch-nono](https://github.com/Kexin-xu-01/autoresearch-nono).
 
 ---
 
-*The companion repo is at [github.com/Kexin-xu-01/autoresearch-nono](https://github.com/Kexin-xu-01/autoresearch-nono). The profile will be published to the nono registry shortly.*
+## Example Results on IBD data
+
+![Autoresearch results on IBD data](output.png)
+
+The chart shows 34 experiments run overnight on IBD clinical case reports. The y-axis is validation bits per byte (BPB) — a measure of how well the model compresses the text, where lower is better. Starting from a baseline of 1.09 BPB, the agent explored architectural changes including depth scaling, attention head configuration, SwiGLU activations, and grouped-query attention (GQA). 18 of the 34 experiments were kept as improvements, with the rest reverted. By morning, BPB had dropped to 0.76 — a roughly 30% reduction — without any manual intervention.
+
+---
+
+*Repo: [github.com/Kexin-xu-01/autoresearch-nono](https://github.com/Kexin-xu-01/autoresearch-nono)*
