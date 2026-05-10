@@ -56,6 +56,13 @@ _verify() {
 echo "[nono] Checking attestation..."
 _verify
 
+SHIM="${SCRIPT_DIR}/cuda_proc_shim.so"
+if [[ ! -f "${SHIM}" ]]; then
+    echo "[nono] Building CUDA thread-naming shim (one-time)..."
+    gcc -shared -fPIC -O2 -o "${SHIM}" "${SCRIPT_DIR}/cuda_proc_shim.c" -ldl
+fi
+
+export LD_PRELOAD="${SHIM}"
 echo "[nono] Starting agent under kernel enforcement..."
 exec nono run \
     --profile claude-code-autoresearch \
