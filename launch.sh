@@ -11,6 +11,10 @@
 #
 set -euo pipefail
 
+# Ensure nvm-managed node is in PATH (nvm is not sourced in non-interactive shells)
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh" --no-use
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AUTORESEARCH_DIR="$(realpath "${1:-$SCRIPT_DIR/workload}")"
 # Check for IBD program bundle first, fall back to generic
