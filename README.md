@@ -41,8 +41,9 @@ just filtered.
 git clone https://github.com/Kexin-xu-01/autoresearch-nono
 cd autoresearch-nono
 
-# 2. Install the nono profile
-cp profiles/claude-code-autoresearch.json ~/.config/nono/profiles/
+# 2. Install nono registry packs
+nono pull always-further/claude
+nono pull Kexin-xu-01/claude-autoresearch
 
 # 3. One-time: generate signing key and set up user-level trust policy
 nono trust keygen --keyref "file://$HOME/.config/nono/trust-key.pem"
