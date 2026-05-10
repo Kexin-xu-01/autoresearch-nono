@@ -28,6 +28,7 @@ just filtered.
 
 - Linux kernel ≥ 5.13 (Landlock support) — or macOS 10.5+ for the MLX profile
 - [nono](https://github.com/lukehinds/nono) installed
+- [uv](https://docs.astral.sh/uv/) installed
 
 ---
 
