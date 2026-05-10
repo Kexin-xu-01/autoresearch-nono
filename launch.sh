@@ -7,7 +7,7 @@
 #
 # Prerequisites:
 #   - nono installed (https://github.com/lukehinds/nono)
-#   - profile installed: cp profiles/claude-code-autoresearch.json ~/.config/nono/profiles/
+#   - nono packs installed: nono pull always-further/claude && nono pull Kexin-xu-01/claude-autoresearch
 #
 set -euo pipefail
 

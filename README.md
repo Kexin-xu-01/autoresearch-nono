@@ -158,7 +158,7 @@ workload/
     corpus.py            climbmix corpus loader
     program.md           agent instructions (generic, climbmix)
 profiles/
-  claude-code-autoresearch.json  nono profile for Linux/CUDA + GPU
+  claude-code-autoresearch.json  source of the nono registry pack (install via: nono pull Kexin-xu-01/claude-autoresearch)
 trust/                   attestation bundles live here locally (not committed)
 audit-examples/          add session excerpts here after runs
 output.png               example results chart (IBD overnight run)
