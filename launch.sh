@@ -11,10 +11,6 @@
 #
 set -euo pipefail
 
-# Ensure nvm-managed node is in PATH (nvm is not sourced in non-interactive shells)
-export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AUTORESEARCH_DIR="$(realpath "${1:-$SCRIPT_DIR/workload}")"
 # Check for IBD program bundle first, fall back to generic
@@ -58,15 +54,10 @@ _verify() {
 echo "[nono] Checking attestation..."
 _verify
 
-NODE_BIN="$(command -v node)"
-NODE_DIR="$(dirname "$NODE_BIN")"
-CLAUDE_CLI="$NODE_DIR/../lib/node_modules/@anthropic-ai/claude-code/cli.js"
-
-echo "[nono] Using node: $NODE_BIN"
 echo "[nono] Starting agent under kernel enforcement..."
 exec nono run \
     --profile claude-code-autoresearch \
     --allow-gpu \
     --allow-cwd \
     --workdir "${AUTORESEARCH_DIR}" \
-    -- "$NODE_BIN" "$CLAUDE_CLI" --dangerously-skip-permissions
+    -- claude --dangerously-skip-permissions
