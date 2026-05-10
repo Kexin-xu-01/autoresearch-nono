@@ -28,6 +28,8 @@ just filtered.
 
 - Linux kernel ≥ 5.13 (Landlock support) — or macOS 10.5+ for the MLX profile
 - [nono](https://github.com/lukehinds/nono) installed
+- [Node.js](https://github.com/nvm-sh/nvm) 18+ installed (via nvm recommended: `nvm install 18 && nvm alias default 18`)
+- [Claude Code](https://claude.ai/code) installed (`curl -fsSL https://claude.ai/install.sh | bash`)
 - [uv](https://docs.astral.sh/uv/) installed
 
 ---
