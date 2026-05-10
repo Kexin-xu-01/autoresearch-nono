@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 run.log
 results.tsv
+trust-policy.json
+trust-policy.json.bundle

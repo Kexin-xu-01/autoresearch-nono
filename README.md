@@ -136,7 +136,6 @@ Key changes the agent discovered: depth scaling, SwiGLU activations, grouped-que
 workload/
   train.py               GPT model + training loop (the file the agent modifies)
   analysis.ipynb         experiment analysis and BPB progress chart
-  trust-policy.json      attestation policy
   pyproject.toml         Python dependencies
   uv.lock                dependency lock file
   .python-version        pinned Python version
