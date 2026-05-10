@@ -60,4 +60,6 @@ exec nono run \
     --allow-gpu \
     --allow-cwd \
     --workdir "${AUTORESEARCH_DIR}" \
-    -- claude --dangerously-skip-permissions
+    -- "$(dirname "$(command -v node)")/node" \
+       "$(dirname "$(command -v node)")/../lib/node_modules/@anthropic-ai/claude-code/cli.js" \
+       --dangerously-skip-permissions
