@@ -24,7 +24,7 @@ Interesting angles to explore:
 To set up a new experiment, work with the user to:
 
 1. **Agree on a run tag**: propose a tag based on today's date (e.g. `apr11`). The branch `autoresearch-nono/<tag>` must not already exist in the `autoresearch-nono` repo — this is a fresh run.
-2. **Create the branch**: from the repo root (`autoresearch-nono/`), run `git checkout -b autoresearch-nono/<tag>` from `main`, then `git push -u origin autoresearch-nono/<tag>`. All experiment commits go into `Kexin-xu-01/autoresearch-nono`.
+2. **Create the branch**: from the repo root (`autoresearch-nono/`), run `git checkout -b autoresearch-nono/<tag>` from `main`, then `git push -u origin autoresearch-nono/<tag>`. All experiment commits go into `Kexin-xu-01/autoresearch-nono`. Also set git identity locally (the sandbox does not expose the global gitconfig): `git config user.email "kexin@alwaysfurther.ai" && git config user.name "Kexin Xu"`.
 3. **Read the in-scope files**: Read these files for full context:
    - `README.md` — repository context.
    - `ibd/prepare_ibd.py` — fixed constants, data prep, tokenizer, dataloader, evaluation. Do not modify.
