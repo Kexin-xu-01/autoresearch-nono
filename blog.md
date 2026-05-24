@@ -121,6 +121,9 @@ ssh-keygen -t ed25519 -f ~/.ssh/autoresearch_github -C "autoresearch-agent" -N "
 
 # One-time: point the repo at SSH
 git -C ~/autoresearch-nono remote set-url origin git@github.com:<your-username>/autoresearch-nono.git
+
+# One-time: pre-populate known_hosts so SSH doesn't prompt interactively inside the sandbox
+ssh-keyscan github.com >> ~/.ssh/known_hosts
 ```
 
 Add the contents of `~/.ssh/autoresearch_github.pub` to your GitHub repo as a deploy key with write access (Settings → Deploy keys). This keeps your personal key out of the sandbox entirely — the agent only has access to this one repo, and only for the duration of the session.

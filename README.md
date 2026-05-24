@@ -80,6 +80,8 @@ ssh-keygen -t ed25519 -f ~/.ssh/autoresearch_github -C "autoresearch-agent" -N "
 #    Add ~/.ssh/autoresearch_github.pub to your GitHub repo as a deploy key with write access
 #    (Settings → Deploy keys), then point the remote at SSH:
 git remote set-url origin git@github.com:<your-username>/autoresearch-nono.git
+#    Pre-populate known_hosts so SSH doesn't prompt interactively inside the sandbox:
+ssh-keyscan github.com >> ~/.ssh/known_hosts
 
 # Each time before launching: load the deploy key into ssh-agent
 eval $(ssh-agent -s) && ssh-add ~/.ssh/autoresearch_github
