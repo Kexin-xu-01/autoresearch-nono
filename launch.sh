@@ -2,8 +2,8 @@
 # launch.sh — run autoresearch under nono kernel-level enforcement
 #
 # Usage:
-#   ./launch.sh <path-to-autoresearch-clone>
-#   ./launch.sh .   # if already in the repo directory
+#   ./launch.sh            # defaults to ./workload
+#   ./launch.sh <workload-dir>
 #
 # Prerequisites:
 #   - nono installed (https://github.com/lukehinds/nono)
@@ -15,9 +15,11 @@ export PATH="$HOME/.local/bin:$PATH"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AUTORESEARCH_DIR="$(realpath "${1:-$SCRIPT_DIR/workload}")"
-# Check for IBD program bundle first, fall back to generic
+# Detect which corpus bundle is present (IBD → TCGA → climbmix)
 if [[ -f "${AUTORESEARCH_DIR}/ibd/program_ibd.md.bundle" ]]; then
     BUNDLE="${AUTORESEARCH_DIR}/ibd/program_ibd.md.bundle"
+elif [[ -f "${AUTORESEARCH_DIR}/tcga/program_tcga.md.bundle" ]]; then
+    BUNDLE="${AUTORESEARCH_DIR}/tcga/program_tcga.md.bundle"
 else
     BUNDLE="${AUTORESEARCH_DIR}/climbmix/program.md.bundle"
 fi
