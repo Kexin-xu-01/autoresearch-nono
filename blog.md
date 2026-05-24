@@ -60,7 +60,10 @@ Credential paths (`~/.aws`, `~/.ssh`) are absent from the allow list and are the
 git -C workload log --oneline
 
 # nono's view — what was actually touched
-nono audit show <session-id> --json | jq '.denials'
+nono audit show <session-id> --json
+
+# filter for blocked access attempts (null means none were recorded)
+nono audit show <session-id> --json | jq '.denials // "no denials recorded"'
 ```
 
 For a research context this is independently useful: it lets me confirm which data shards were accessed during evaluation, verify that the training subprocess is only reaching expected network endpoints, and identify unexpected behaviour in the CUDA compilation layer.
