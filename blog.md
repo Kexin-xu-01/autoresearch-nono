@@ -92,14 +92,22 @@ One command starts the agent under enforcement:
 [nono] ABORT: attestation failed — program.md may have been tampered with.
 ```
 
-If attestation passes, it starts Claude under nono kernel enforcement with the `claude-code-autoresearch` profile, GPU access enabled, and the workload directory as the sandbox root:
+If attestation passes, it runs:
 
-```
-[nono] Attestation OK.
-[nono] Starting agent under kernel enforcement...
+```bash
+exec nono run \
+    --profile claude-code-autoresearch \
+    --allow-gpu \
+    --allow-cwd \
+    --workdir "${AUTORESEARCH_DIR}" \
+    -- claude --dangerously-skip-permissions
 ```
 
-`--dangerously-skip-permissions` is intentional. Autoresearch requires the agent to operate without interactive confirmation — that is the design. Claude Code's permission prompts and nono's kernel enforcement address different problems; for an unattended overnight run, the latter is the appropriate control.
+- `--profile claude-code-autoresearch` — loads the sandbox profile, which defines exactly which paths and network endpoints are accessible. Everything else is blocked at the kernel level.
+- `--allow-gpu` — grants access to the NVIDIA device nodes and driver interfaces needed for CUDA. Absent from the base profile by default since most agent workloads don't need it.
+- `--allow-cwd` — adds the current working directory to the allow list, so the agent can read and write the repo it was launched from.
+- `--workdir` — sets the sandbox root to the workload directory. The agent starts with that as its working directory.
+- `--dangerously-skip-permissions` — tells Claude Code to skip its own interactive permission prompts. This is intentional: autoresearch needs the agent to run unattended overnight. Claude Code's prompts and nono's kernel enforcement address different problems — for an overnight run, the kernel boundary is the appropriate control.
 
 The agent does not know it is sandboxed. Nothing in the training setup needs to change. The profile is available via the nono registry (`nono pull Kexin-xu-01/claude-autoresearch`), along with ready-to-use workloads for IBD, TCGA, and general web text at [autoresearch-nono](https://github.com/Kexin-xu-01/autoresearch-nono).
 
