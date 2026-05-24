@@ -111,6 +111,21 @@ exec nono run \
 
 The agent does not know it is sandboxed. Nothing in the training setup needs to change. The profile is available via the nono registry (`nono pull Kexin-xu-01/claude-autoresearch`), along with ready-to-use workloads for IBD, TCGA, and general web text at [autoresearch-nono](https://github.com/Kexin-xu-01/autoresearch-nono).
 
+**One recommended setup step: give the agent its own SSH key.** The agent commits each experiment to git as it runs, so it needs push access to the repo. Rather than exposing your personal SSH key inside the sandbox, create a dedicated keypair with no passphrase so the agent can push unattended:
+
+```bash
+# Generate a dedicated keypair for the agent
+ssh-keygen -t ed25519 -f ~/.ssh/autoresearch_github -C "autoresearch-agent" -N ""
+
+# Point the repo at SSH
+git -C ~/autoresearch-nono remote set-url origin git@github.com:<your-username>/autoresearch-nono.git
+
+# Load the key into the agent before launching
+eval $(ssh-agent -s) && ssh-add ~/.ssh/autoresearch_github
+```
+
+Add the contents of `~/.ssh/autoresearch_github.pub` to your GitHub repo as a deploy key with write access (Settings → Deploy keys). This keeps your personal key out of the sandbox entirely — the agent only has access to this one repo, and only for the duration of the session.
+
 ---
 
 ## Example Results on IBD data
