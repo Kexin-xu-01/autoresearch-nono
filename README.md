@@ -78,8 +78,10 @@ cd ..
 #    Use a separate key rather than your personal one.
 ssh-keygen -t ed25519 -f ~/.ssh/autoresearch_github -C "autoresearch-agent" -N ""
 #    Add ~/.ssh/autoresearch_github.pub to your GitHub repo as a deploy key with write access
-#    (Settings → Deploy keys), then point the remote at SSH and load the key:
+#    (Settings → Deploy keys), then point the remote at SSH:
 git remote set-url origin git@github.com:<your-username>/autoresearch-nono.git
+
+# Each time before launching: load the deploy key into ssh-agent
 eval $(ssh-agent -s) && ssh-add ~/.ssh/autoresearch_github
 
 # 6. One-time: prepare data and train tokenizer for your chosen corpus (pick one)
