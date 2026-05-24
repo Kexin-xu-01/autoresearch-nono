@@ -8,6 +8,10 @@ import os
 import sys
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+# Triton/inductor caches must be in sandbox-writable paths; Python headers from uv-managed install
+os.environ.setdefault("TRITON_CACHE_DIR", "/tmp/triton")
+os.environ.setdefault("TORCHINDUCTOR_CACHE_DIR", "/tmp/torchinductor")
+os.environ.setdefault("CPATH", "/home/kexinxu/.cache/uv/python-installs/cpython-3.10.20-linux-x86_64-gnu/include/python3.10")
 # Corpus selector — change to "ibd", "tcga", or "climbmix"
 CORPUS = "ibd"
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), CORPUS))
@@ -442,7 +446,7 @@ class MuonAdamW(torch.optim.Optimizer):
 # ---------------------------------------------------------------------------
 
 # Model architecture
-ASPECT_RATIO = 24       # model_dim = depth * ASPECT_RATIO
+ASPECT_RATIO = 96       # model_dim = depth * ASPECT_RATIO (keeps n_embd=768 at depth=8)
 HEAD_DIM = 128          # target head dimension for attention
 WINDOW_PATTERN = "LLLL" # sliding window pattern: L=full, S=half context
 
@@ -459,8 +463,8 @@ WARMDOWN_RATIO = 0.3    # fraction of time budget for LR warmdown
 FINAL_LR_FRAC = 0.0     # final LR as fraction of initial
 
 # Model size
-DEPTH = 32             # number of transformer layers
-N_KV_HEADS = 2         # GQA: KV heads (must divide n_head=6 evenly; 2 → 3 queries per KV)
+DEPTH = 8              # number of transformer layers (n_embd=768 → 62M params)
+N_KV_HEADS = 2         # GQA: KV heads (divides n_head=6; 2 → 3 queries per KV)
 DEVICE_BATCH_SIZE = 16   # per-device batch size (reduce if OOM)
 
 # ---------------------------------------------------------------------------
