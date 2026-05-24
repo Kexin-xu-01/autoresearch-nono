@@ -60,7 +60,7 @@ exec nono run \
     -- claude --dangerously-skip-permissions
 ```
 
-The agent does not know it is sandboxed. Nothing in the training setup needs to change. The profile is in the `profiles/` directory of [autoresearch-nono](https://github.com/Kexin-xu-01/autoresearch-nono), along with ready-to-use workloads for IBD, TCGA, and general web text. It will be published to the nono profile registry shortly.
+The agent does not know it is sandboxed. Nothing in the training setup needs to change. The profile is available on the nono registry (`nono pull Kexin-xu-01/claude-autoresearch`), along with ready-to-use workloads for IBD, TCGA, and general web text at [autoresearch-nono](https://github.com/Kexin-xu-01/autoresearch-nono).
 
 ---
 

@@ -42,7 +42,7 @@ The `claude-code-autoresearch` profile extends nono's base `claude-code` profile
 - `~/.cache/autoresearch/` — training data and tokenizer
 - `~/.cache/torch`, `~/.cache/huggingface` — framework caches
 - `~/.cache/uv`, `~/.local/share/uv` — package manager cache
-- `~/.nv`, `~/.triton/cache` — GPU compilation caches
+- `~/.nv`, `~/.triton` — GPU compilation caches
 - `/tmp`, `/dev/shm` — runtime scratch space
 
 Read-only access is granted to the specific `/proc` paths CUDA and PyTorch require: `/proc/driver/nvidia`, `/proc/meminfo`, `/proc/cpuinfo`, `/proc/self`, `/proc/version`, and `/proc/sys/vm/overcommit_memory`. Broad `/proc` access — which would expose writable kernel parameters via `/proc/sys` — is not granted.
