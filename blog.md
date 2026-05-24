@@ -82,12 +82,21 @@ For a research context this is independently useful: it lets me confirm which da
 One command starts the agent under enforcement:
 
 ```bash
-exec nono run \
-    --profile claude-code-autoresearch \
-    --allow-gpu \
-    --allow-cwd \
-    --workdir "${AUTORESEARCH_DIR}" \
-    -- claude --dangerously-skip-permissions
+./launch.sh
+```
+
+`launch.sh` does two things before the agent starts. First, it verifies the attestation bundle for the signed corpus program file — if `program.md` has been modified since it was signed, the launch is aborted:
+
+```
+[nono] Checking attestation...
+[nono] ABORT: attestation failed — program.md may have been tampered with.
+```
+
+If attestation passes, it starts Claude under nono kernel enforcement with the `claude-code-autoresearch` profile, GPU access enabled, and the workload directory as the sandbox root:
+
+```
+[nono] Attestation OK.
+[nono] Starting agent under kernel enforcement...
 ```
 
 `--dangerously-skip-permissions` is intentional. Autoresearch requires the agent to operate without interactive confirmation — that is the design. Claude Code's permission prompts and nono's kernel enforcement address different problems; for an unattended overnight run, the latter is the appropriate control.
