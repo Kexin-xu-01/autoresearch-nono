@@ -58,7 +58,7 @@ _verify() {
 echo "[nono] Checking attestation..."
 _verify
 
-export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/autoresearch_github -o IdentitiesOnly=yes"
+export GIT_SSH_COMMAND="ssh -o IdentitiesOnly=yes -o IdentityAgent=${SSH_AUTH_SOCK}"
 
 echo "[nono] Starting agent under kernel enforcement..."
 exec nono run \
