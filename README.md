@@ -73,12 +73,21 @@ nono trust verify climbmix/program.md
 
 cd ..
 
-# 5. One-time: prepare data and train tokenizer for your chosen corpus (pick one)
+# 5. One-time: set up a dedicated SSH deploy key for the agent
+#    The agent commits experiments to git, so it needs push access.
+#    Use a separate key rather than your personal one.
+ssh-keygen -t ed25519 -f ~/.ssh/autoresearch_github -C "autoresearch-agent" -N ""
+#    Add ~/.ssh/autoresearch_github.pub to your GitHub repo as a deploy key with write access
+#    (Settings → Deploy keys), then point the remote at SSH and load the key:
+git remote set-url origin git@github.com:<your-username>/autoresearch-nono.git
+eval $(ssh-agent -s) && ssh-add ~/.ssh/autoresearch_github
+
+# 6. One-time: prepare data and train tokenizer for your chosen corpus (pick one)
 cd workload && uv run ibd/prepare_ibd.py && cd ..    # Option A
 cd workload && uv run tcga/prepare_tcga.py && cd ..  # Option B
 cd workload && uv run climbmix/prepare.py && cd ..   # Option C
 
-# 6. Launch — no path argument needed (launch.sh auto-detects the signed bundle)
+# 7. Launch — no path argument needed (launch.sh auto-detects the signed bundle)
 ./launch.sh
 ```
 
