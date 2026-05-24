@@ -58,6 +58,8 @@ _verify() {
 echo "[nono] Checking attestation..."
 _verify
 
+export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/autoresearch_github -o IdentitiesOnly=yes"
+
 echo "[nono] Starting agent under kernel enforcement..."
 exec nono run \
     --profile claude-code-autoresearch \
