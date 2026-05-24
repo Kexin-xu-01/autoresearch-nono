@@ -62,9 +62,11 @@ git -C workload log --oneline
 # nono's view — what was actually touched
 nono audit show <session-id> --json
 
-# filter for blocked access attempts (null means none were recorded)
+# filter for blocked access attempts (null means none were recorded in the JSON log)
 nono audit show <session-id> --json | jq '.denials // "no denials recorded"'
 ```
+
+nono also prints a human-readable denial summary to the terminal at the end of each session. This is separate from the structured JSON audit — it lists every path that was blocked during the run. The majority of entries are ephemeral `/proc/<pid>` paths from Python training subprocesses, which appear because Landlock resolves process paths at sandbox creation time and child processes get different PIDs. These are expected and cannot be eliminated by profile changes.
 
 For a research context this is independently useful: it lets me confirm which data shards were accessed during evaluation, verify that the training subprocess is only reaching expected network endpoints, and identify unexpected behaviour in the CUDA compilation layer.
 
