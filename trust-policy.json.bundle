@@ -1,0 +1,19 @@
+{
+  "mediaType": "application/vnd.dev.sigstore.bundle.v0.3+json",
+  "verificationMaterial": {
+    "publicKey": {
+      "hint": "0875f30602f4c2232edf9b41eb0d04da34081a255759437caf02184d34729ebe"
+    },
+    "tlogEntries": [],
+    "timestampVerificationData": {}
+  },
+  "dsseEnvelope": {
+    "payloadType": "application/vnd.in-toto+json",
+    "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJzdWJqZWN0IjpbeyJuYW1lIjoidHJ1c3QtcG9saWN5Lmpzb24iLCJkaWdlc3QiOnsic2hhMjU2IjoiODJhODVjYzZkODY3ODFiNGQ0OWZiNmI5NzBjMjljY2FhNjE2OTM5NzkzYjUyZmY5NTY1NTE2ODE5MDY1N2E0YiJ9fV0sInByZWRpY2F0ZVR5cGUiOiJodHRwczovL25vbm8uc2gvYXR0ZXN0YXRpb24vdHJ1c3QtcG9saWN5L3YxIiwicHJlZGljYXRlIjp7InZlcnNpb24iOjEsInNpZ25lciI6eyJraW5kIjoia2V5ZWQiLCJrZXlfaWQiOiJmaWxlOi8vL2hvbWUva2V4aW54dS8uY29uZmlnL25vbm8vdHJ1c3Qta2V5LnBlbSJ9fX0=",
+    "signatures": [
+      {
+        "sig": "MEQCIDRgpP7E1A99K23eZvxKQBdk9/AH+ZjCy3zDHQcjCxPsAiB1rerPEDA8cKSqgR9okHOEYcL9zDVJKnJ5MQClHENGBA=="
+      }
+    ]
+  }
+}

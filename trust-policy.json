@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "includes": [
+    "ibd/program_ibd.md"
+  ],
+  "publishers": [
+    {
+      "name": "file:///home/kexinxu/.config/nono/trust-key.pem",
+      "key_id": "file:///home/kexinxu/.config/nono/trust-key.pem",
+      "public_key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE/NLTYmDy1xgVpcgmudenriJxd+TBT8j3Qy8Ja85K5iJZ8mnbK/AdtGvW1wTQC+g9mkh7htcfw0AMgWahYSl5QA=="
+    }
+  ],
+  "blocklist": {
+    "digests": [],
+    "publishers": []
+  },
+  "enforcement": "deny"
+}
